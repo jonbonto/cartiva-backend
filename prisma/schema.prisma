@@ -21,7 +21,7 @@ model Product {
   id          Int      @id @default(autoincrement())
   name        String
   description String
-  price       Decimal
+  priceInCents Int      /// Price in cents (e.g., 1999 = $19.99)
   stock       Int      @default(0)
   imageUrl    String?
   isActive    Boolean  @default(true)
@@ -31,18 +31,19 @@ model Product {
 }
 
 model Cart {
-  id        Int      @id @default(autoincrement())
-  sessionId String   @unique
-  items     CartItem[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  sessionId     String   @unique
+  items         CartItem[]
+  lastActivityAt DateTime @default(now()) @updatedAt /// Track inactivity for TTL
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model CartItem {
   id        Int      @id @default(autoincrement())
   cartId    Int
   productId Int
-  qty       Int
-  cart      Cart     @relation(fields: [cartId], references: [id])
+  quantity  Int      /// Renamed from 'qty' for API consistency
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id])
 }

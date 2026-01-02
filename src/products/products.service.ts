@@ -16,15 +16,12 @@ export class ProductsService {
   }
 
   create(dto: CreateProductDto) {
-    // price should be provided as string or number; Prisma expects Decimal as string
-    const data: any = { ...dto, price: dto.price?.toString() }
-    return this.prisma.product.create({ data })
+    // priceInCents is already an integer — no conversion needed
+    return this.prisma.product.create({ data: dto })
   }
 
   update(id: number, dto: UpdateProductDto) {
-    const data: any = { ...dto }
-    if (dto.price !== undefined) data.price = dto.price.toString()
-    return this.prisma.product.update({ where: { id }, data })
+    return this.prisma.product.update({ where: { id }, data: dto })
   }
 
   remove(id: number) {

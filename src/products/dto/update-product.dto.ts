@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsNumber } from 'class-validator'
+import { IsOptional, IsString, IsInt, Min } from 'class-validator'
+import { Type } from 'class-transformer'
 
 export class UpdateProductDto {
 	@IsOptional()
@@ -9,11 +10,20 @@ export class UpdateProductDto {
 	@IsString()
 	description?: string
 
+	/**
+	 * Price in CENTS (e.g., 1999 = $19.99)
+	 * Stored as integer to prevent floating-point errors
+	 */
 	@IsOptional()
-	price?: string | number
+	@Type(() => Number)
+	@IsInt()
+	@Min(1)
+	priceInCents?: number
 
 	@IsOptional()
-	@IsNumber()
+	@Type(() => Number)
+	@IsInt()
+	@Min(0)
 	stock?: number
 
 	@IsOptional()

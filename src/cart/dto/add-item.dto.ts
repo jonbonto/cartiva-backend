@@ -6,5 +6,5 @@ export class AddItemDto {
 
   @IsInt()
   @Min(1)
-  qty: number
+  quantity: number
 }

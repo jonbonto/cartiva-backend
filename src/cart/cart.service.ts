@@ -1,38 +1,131 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { CartResponseDto } from './dto/cart-response.dto'
 
 @Injectable()
 export class CartService {
   constructor(private prisma: PrismaService) {}
 
-  async getCartBySession(sessionId: string) {
+  /**
+   * Get or create cart, always return full cart with computed totals
+   */
+  async getCartBySession(sessionId: string): Promise<CartResponseDto> {
     let cart = await this.prisma.cart.findUnique({
       where: { sessionId },
       include: { items: { include: { product: true } } }
     })
+
     if (!cart) {
-      cart = await this.prisma.cart.create({ data: { sessionId } , include: { items: { include: { product: true } } } })
+      cart = await this.prisma.cart.create({
+        data: { sessionId },
+        include: { items: { include: { product: true } } }
+      })
     }
-    return cart
+
+    return this.mapToResponseDto(cart)
   }
 
-  async addItem(sessionId: string, productId: number, qty: number) {
+  /**
+   * Add item or increment quantity, return full cart
+   */
+  async addItem(sessionId: string, productId: number, quantity: number): Promise<CartResponseDto> {
     const cart = await this.getCartBySession(sessionId)
-    const existing = await this.prisma.cartItem.findFirst({ where: { cartId: cart.id, productId } })
+
+    const existing = await this.prisma.cartItem.findFirst({
+      where: { cartId: cart.id, productId }
+    })
+
     if (existing) {
-      return this.prisma.cartItem.update({ where: { id: existing.id }, data: { qty: existing.qty + qty }, include: { product: true } })
+      await this.prisma.cartItem.update({
+        where: { id: existing.id },
+        data: { quantity: existing.quantity + quantity }
+      })
+    } else {
+      await this.prisma.cartItem.create({
+        data: { cartId: cart.id, productId, quantity }
+      })
     }
-    return this.prisma.cartItem.create({ data: { cartId: cart.id, productId, qty }, include: { product: true } })
+
+    // Update cart activity
+    await this.prisma.cart.update({
+      where: { id: cart.id },
+      data: { lastActivityAt: new Date() }
+    })
+
+    return this.getCartBySession(sessionId)
   }
 
-  async updateItem(itemId: number, qty: number) {
-    if (qty <= 0) {
-      return this.prisma.cartItem.delete({ where: { id: itemId }, include: { product: true } })
+  /**
+   * Update item quantity or delete if quantity <= 0, return full cart
+   */
+  async updateItem(cartId: number, itemId: number, quantity: number): Promise<CartResponseDto> {
+    if (quantity <= 0) {
+      await this.prisma.cartItem.delete({ where: { id: itemId } })
+    } else {
+      await this.prisma.cartItem.update({ where: { id: itemId }, data: { quantity } })
     }
-    return this.prisma.cartItem.update({ where: { id: itemId }, data: { qty }, include: { product: true } })
+
+    // Update cart activity
+    await this.prisma.cart.update({
+      where: { id: cartId },
+      data: { lastActivityAt: new Date() }
+    })
+
+    // Fetch full cart
+    const cart = await this.prisma.cart.findUnique({
+      where: { id: cartId },
+      include: { items: { include: { product: true } } }
+    })
+
+    return this.mapToResponseDto(cart!)
   }
 
-  async removeItem(itemId: number) {
-    return this.prisma.cartItem.delete({ where: { id: itemId } })
+  /**
+   * Remove item, return full cart
+   */
+  async removeItem(cartId: number, itemId: number): Promise<CartResponseDto> {
+    await this.prisma.cartItem.delete({ where: { id: itemId } })
+
+    // Update cart activity
+    await this.prisma.cart.update({
+      where: { id: cartId },
+      data: { lastActivityAt: new Date() }
+    })
+
+    const cart = await this.prisma.cart.findUnique({
+      where: { id: cartId },
+      include: { items: { include: { product: true } } }
+    })
+
+    return this.mapToResponseDto(cart!)
+  }
+
+  /**
+   * Map Prisma cart to response DTO with computed totals
+   */
+  private mapToResponseDto(cart: any): CartResponseDto {
+    const totalQuantity = cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
+    const totalPriceInCents = cart.items.reduce(
+      (sum: number, item: any) => sum + item.product.priceInCents * item.quantity,
+      0
+    )
+
+    return {
+      id: cart.id,
+      sessionId: cart.sessionId,
+      items: cart.items.map((item: any) => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          priceInCents: item.product.priceInCents,
+          imageUrl: item.product.imageUrl
+        }
+      })),
+      totalQuantity,
+      totalPriceInCents
+    }
   }
 }

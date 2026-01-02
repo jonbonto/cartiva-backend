@@ -26,35 +26,35 @@ async function main() {
         {
           name: 'Wireless Mouse',
           description: 'Comfortable wireless mouse with precision tracking',
-          price: '19.99',
+          priceInCents: 1999, // $19.99
           stock: 50,
           imageUrl: null
         },
         {
           name: 'Mechanical Keyboard',
           description: 'Tactile mechanical keyboard with RGB lighting',
-          price: '89.99',
+          priceInCents: 8999, // $89.99
           stock: 30,
           imageUrl: null
         },
         {
           name: 'USB-C Hub',
           description: 'Multiport USB-C hub with HDMI and card reader',
-          price: '34.50',
+          priceInCents: 3450, // $34.50
           stock: 75,
           imageUrl: null
         },
         {
           name: 'Noise Cancelling Headphones',
           description: 'Over-ear headphones with active noise cancellation',
-          price: '129.00',
+          priceInCents: 12900, // $129.00
           stock: 20,
           imageUrl: null
         },
         {
           name: 'Webcam 1080p',
           description: 'HD webcam for streaming and video calls',
-          price: '49.99',
+          priceInCents: 4999, // $49.99
           stock: 40,
           imageUrl: null
         }
