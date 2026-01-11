@@ -64,4 +64,113 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   auditLogs AdminAuditLog[]
+  orders    Order[]
+}
+
+/// Order — immutable snapshot of a checkout
+model Order {
+  id              String   @id @default(cuid())
+  userId          Int?     /// Optional for guest checkouts
+  currency        String   /// ISO 4217 code (USD, EUR, etc.)
+  
+  /// Items snapshot (locked prices at purchase time)
+  items           OrderItem[]
+  
+  /// Pricing breakdown (all immutable)
+  subtotalAmountCents     Int  /// Sum of all item subtotals
+  discountTotalAmountCents Int @default(0) /// Sum of all discounts
+  taxAmountCents          Int @default(0) /// For Phase 5+
+  shippingCostCents       Int @default(0) /// For Phase 5+
+  
+  /// Final totals (authoritative)
+  totalBeforePaymentCents Int /// subtotal - discounts + tax + shipping
+  finalTotalAmountCents   Int /// After any additional processing
+  
+  /// Applied discounts (JSON array for audit)
+  appliedDiscounts        Json[] @default([]) /// Array of AppliedDiscount objects
+  
+  /// Order status
+  status                  String @default("PENDING") /// PENDING, CHECKOUT, PAYMENT_FAILED, PAID, FULFILLED, CANCELLED
+  
+  /// Metadata
+  createdAt               DateTime @default(now())
+  paidAt                  DateTime?
+  expiresAt               DateTime? /// For abandoned order cleanup (30 days)
+  
+  /// Relations
+  user                    User? @relation(fields: [userId], references: [id])
+  payment                 Payment?
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Order item — immutable snapshot of product at purchase
+model OrderItem {
+  id                    String @id @default(cuid())
+  orderId               String
+  productId             Int
+  productName           String /// Snapshot of product name
+  unitPriceCents        Int    /// Price per unit at purchase time
+  quantity              Int
+  subtotalAmountCents   Int    /// unitPrice * quantity
+  
+  order                 Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+}
+
+/// Payment — tracks payment provider interactions
+model Payment {
+  id                String @id @default(cuid())
+  orderId           String @unique /// One payment per order
+  provider          String /// stripe, midtrans, paypal, etc.
+  providerPaymentId String /// External payment ID from provider
+  status            String @default("PENDING") /// PENDING, PROCESSING, PAID, FAILED, REFUNDED, CANCELLED
+  
+  /// Raw webhook payload (for debugging)
+  rawWebhookPayload Json?
+  
+  /// Idempotency
+  idempotencyKey    String? @unique /// For webhook deduplication
+  webhookReceivedAt DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  order             Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+  @@index([provider])
+  @@index([status])
+}
+
+/// Discount rule — stored for reusability and audit
+model DiscountRule {
+  id              String @id @default(cuid())
+  code            String? @unique /// e.g., "SAVE10"
+  type            String /// percentage, fixed_amount
+  value           Int /// 10 for 10%, 500 for $5 off
+  appliesTo       String /// cart_wide, specific_product, category
+  
+  /// Scope
+  targetProductIds Int[] @default([]) /// For specific_product scope
+  minCartValueCents Int? /// Only apply if cart >= this value
+  
+  /// Usage tracking
+  maxUsageCount   Int?
+  usageCount      Int @default(0)
+  
+  /// Stacking rules
+  isStackable     Boolean @default(true)
+  priority        Int @default(0) /// Higher = applied first
+  isActive        Boolean @default(true)
+  expiresAt       DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([expiresAt])
 }

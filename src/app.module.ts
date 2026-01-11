@@ -5,8 +5,17 @@ import { ProductsModule } from './products/products.module'
 import { CartModule } from './cart/cart.module'
 import { AdminModule } from './admin/admin.module'
 import { AuthModule } from './auth/auth.module'
+import { OrdersModule } from './orders/orders.module'
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, ProductsModule, CartModule, AdminModule, AuthModule]
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    ProductsModule,
+    CartModule,
+    AdminModule,
+    AuthModule,
+    OrdersModule,
+  ],
 })
 export class AppModule {}

@@ -101,6 +101,16 @@ export class CartService {
   }
 
   /**
+   * Mark cart as checked out — prevents reuse
+   * Called after order creation
+   */
+  async markCartAsCheckedOut(cartId: number): Promise<void> {
+    // Delete cart and all items (soft delete alternative: add checkedOutAt timestamp)
+    await this.prisma.cartItem.deleteMany({ where: { cartId } })
+    await this.prisma.cart.delete({ where: { id: cartId } })
+  }
+
+  /**
    * Map Prisma cart to response DTO with computed totals
    */
   private mapToResponseDto(cart: any): CartResponseDto {
