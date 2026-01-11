@@ -6,11 +6,15 @@ import { PrismaModule } from '../prisma/prisma.module'
 import { CartModule } from '../cart/cart.module'
 import { ProductsModule } from '../products/products.module'
 import { PaymentsModule } from '../payments/payments.module'
+import { EmailModule } from '../email/email.module'
+import { AdminOrdersController } from '../admin/admin-orders.controller'
+import { AdminOrdersService } from '../admin/admin-orders.service'
 
 @Module({
-  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule],
-  providers: [OrdersService, OrderPaymentService],
-  controllers: [OrdersController],
+  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule],
+  providers: [OrdersService, OrderPaymentService, AdminOrdersService],
+  controllers: [OrdersController, AdminOrdersController],
   exports: [OrdersService, OrderPaymentService],
 })
 export class OrdersModule {}
+

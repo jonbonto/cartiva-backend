@@ -174,3 +174,24 @@ model DiscountRule {
   @@index([isActive])
   @@index([expiresAt])
 }
+
+/// Refund — tracks all refund operations for audit & idempotency
+model Refund {
+  id                  String   @id @default(cuid())
+  orderId             String
+  paymentId           String
+  amountCents         Int      /// Amount refunded in cents
+  reason              String   /// Why refund happened
+  status              String   @default("REFUNDED") /// REFUNDED, FAILED, PENDING
+  externalRefundId    String?  /// External refund ID from provider (e.g., Stripe refund ID)
+  
+  /// Metadata for debugging
+  metadata            Json?    /// Provider-specific data
+  
+  createdAt           DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
+}

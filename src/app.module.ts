@@ -6,6 +6,7 @@ import { CartModule } from './cart/cart.module'
 import { AdminModule } from './admin/admin.module'
 import { AuthModule } from './auth/auth.module'
 import { OrdersModule } from './orders/orders.module'
+import { EnvironmentValidator } from './common/environment.validator'
 
 @Module({
   imports: [
@@ -17,5 +18,6 @@ import { OrdersModule } from './orders/orders.module'
     AuthModule,
     OrdersModule,
   ],
+  providers: [EnvironmentValidator],
 })
 export class AppModule {}

@@ -11,6 +11,8 @@ import { PaymentProviderRegistry } from '../common/types/payment'
 import { StripePaymentProvider } from '../payments/stripe.provider'
 import { MidtransPaymentProvider } from '../payments/midtrans.provider'
 import { MockPaymentProvider } from '../common/types/payment-providers-impl'
+import { EmailService } from '../email/email.service'
+import { MoneyValue } from '../common/types/money'
 import crypto from 'crypto'
 
 /**
@@ -34,7 +36,8 @@ export class OrderPaymentService {
     private prisma: PrismaService,
     private ordersService: OrdersService,
     private stripeProvider: StripePaymentProvider,
-    private midtransProvider: MidtransPaymentProvider
+    private midtransProvider: MidtransPaymentProvider,
+    private emailService: EmailService
   ) {
     this.paymentProviderRegistry = new PaymentProviderRegistry()
     
@@ -229,12 +232,41 @@ export class OrderPaymentService {
       const newOrderStatus = this.mapPaymentStatusToOrderStatus(paymentResult.status)
 
       if (newOrderStatus) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: payment.orderId },
+          include: { items: true, user: true },
+        })
+
         await this.ordersService.updateOrderStatus(payment.orderId, newOrderStatus)
 
-        // 7. If payment succeeded, deduct stock
+        // 7. If payment succeeded, deduct stock and send emails
         if (paymentResult.status === 'paid') {
           await this.ordersService.deductStockForOrder(payment.orderId)
           this.logger.log(`Stock deducted for order: ${payment.orderId}`)
+
+          // Send payment success email (async, don't block)
+          if (order?.user?.email) {
+            this.emailService
+              .sendPaymentSuccess(
+                order.user.email,
+                payment.orderId,
+                order.finalTotalAmountCents,
+                order.currency,
+                payment.provider
+              )
+              .catch((err) =>
+                this.logger.error(`Failed to send payment success email: ${err.message}`)
+              )
+          }
+        }
+
+        // Send payment failure email if failed
+        if (paymentResult.status === 'failed' && order?.user?.email) {
+          this.emailService
+            .sendPaymentFailure(order.user.email, payment.orderId)
+            .catch((err) =>
+              this.logger.error(`Failed to send payment failure email: ${err.message}`)
+            )
         }
       }
     } catch (error) {
@@ -285,6 +317,28 @@ export class OrderPaymentService {
     return status
   }
 
+   /**
+    * Refund a payment (for AdminOrdersService)
+    * Returns result for further processing
+    */
+   async refundPaymentSafe(
+     paymentId: string,
+     provider: string,
+     amount?: MoneyValue,
+     reason?: string
+   ) {
+     const paymentProvider = this.paymentProviderRegistry.getProvider(provider)
+
+     try {
+       const refundResult = await paymentProvider.refund(paymentId, amount)
+       this.logger.log(`Refund processed: ${refundResult.refundId}`)
+       return refundResult
+     } catch (error) {
+       this.logger.error(`Refund failed: ${error.message}`)
+       throw error
+     }
+   }
+
   /**
    * Refund a payment
    */
@@ -324,6 +378,7 @@ export class OrderPaymentService {
       throw new InternalServerErrorException(`Refund failed: ${error.message}`)
     }
   }
+
 
   /**
    * Helper: Convert DB order to domain Order type
