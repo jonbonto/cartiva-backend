@@ -7,16 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("user")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Product {
   id          Int      @id @default(autoincrement())
   name        String
@@ -25,6 +15,7 @@ model Product {
   stock       Int      @default(0)
   imageUrl    String?
   isActive    Boolean  @default(true)
+  deletedAt   DateTime?  /// Soft delete timestamp
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   CartItem    CartItem[]
@@ -46,4 +37,31 @@ model CartItem {
   quantity  Int      /// Renamed from 'qty' for API consistency
   cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id])
+}
+
+/// Audit log for admin actions — immutable trail
+model AdminAuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  action    String   /// CREATE_PRODUCT, UPDATE_PRODUCT, DEACTIVATE_PRODUCT
+  entityType String  /// PRODUCT
+  entityId  Int
+  beforeState Json?    /// Snapshot before change
+  afterState Json      /// Snapshot after change
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  auditLogs AdminAuditLog[]
 }

@@ -1,5 +1,16 @@
-import { Controller, Post, Body, Res, UseGuards, Get, Param, ParseIntPipe, Delete, Put, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common'
-import { Response } from 'express'
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Put,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common'
 import { ProductsService } from '../products/products.service'
 import { CreateProductDto } from '../products/dto/create-product.dto'
 import { UpdateProductDto } from '../products/dto/update-product.dto'
@@ -7,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { extname, join } from 'path'
 import { AdminGuard } from '../auth/guards/admin.guard'
+import { GetRequestInfo, RequestInfo } from '../common/decorators/request-info.decorator'
 
 function storageOptions() {
   return diskStorage({
@@ -24,8 +36,9 @@ export class AdminController {
 
   @UseGuards(AdminGuard)
   @Get('products')
-  async listProducts() {
-    return this.productsService.findAll()
+  async listProducts(@GetRequestInfo() info: RequestInfo) {
+    // Admins see all products including inactive
+    return this.productsService.findAll(true)
   }
 
   @UseGuards(AdminGuard)
@@ -37,11 +50,15 @@ export class AdminController {
   @UseGuards(AdminGuard)
   @UseInterceptors(FileInterceptor('image', { storage: storageOptions() }))
   @Post('products')
-  async createProduct(@Body() body: CreateProductDto, @UploadedFile() file?: any) {
+  async createProduct(
+    @Body() body: CreateProductDto,
+    @UploadedFile() file: any,
+    @GetRequestInfo() info: RequestInfo
+  ) {
     if (file) {
       body.imageUrl = `/uploads/products/${file.filename}`
     }
-    return this.productsService.create(body)
+    return this.productsService.create(body, info.userId, info.ipAddress, info.userAgent)
   }
 
   @UseGuards(AdminGuard)
@@ -50,15 +67,23 @@ export class AdminController {
   async updateProduct(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: UpdateProductDto,
-    @UploadedFile() file?: any
+    @UploadedFile() file: any,
+    @GetRequestInfo() info: RequestInfo
   ) {
     if (file) body.imageUrl = `/uploads/products/${file.filename}`
-    return this.productsService.update(id, body)
+    return this.productsService.update(id, body, info.userId, info.ipAddress, info.userAgent)
   }
 
+  /**
+   * PHASE 2: Soft delete endpoint
+   * Marks product as inactive instead of hard delete
+   */
   @UseGuards(AdminGuard)
-  @Delete('products/:id')
-  async deleteProduct(@Param('id', ParseIntPipe) id: number) {
-    return this.productsService.remove(id)
+  @Patch('products/:id/deactivate')
+  async deactivateProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @GetRequestInfo() info: RequestInfo
+  ) {
+    return this.productsService.deactivate(id, info.userId, info.ipAddress, info.userAgent)
   }
 }

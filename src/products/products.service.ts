@@ -1,30 +1,120 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
+import { AuditLogService } from '../audit/audit-log.service'
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLog: AuditLogService
+  ) {}
 
-  findAll() {
-    return this.prisma.product.findMany({ where: { isActive: true } })
+  /**
+   * Get all active products (soft-delete aware)
+   */
+  findAll(includeInactive = false) {
+    const where: any = {}
+    if (!includeInactive) {
+      where.isActive = true
+    }
+    return this.prisma.product.findMany({ where })
   }
 
+  /**
+   * Get product by ID — visible even if soft-deleted
+   * (needed for audit trail and history)
+   */
   findOne(id: number) {
     return this.prisma.product.findUnique({ where: { id } })
   }
 
-  create(dto: CreateProductDto) {
-    // priceInCents is already an integer — no conversion needed
-    return this.prisma.product.create({ data: dto })
+  /**
+   * Create product with audit logging
+   */
+  async create(dto: CreateProductDto, adminId: number, ipAddress?: string, userAgent?: string) {
+    const product = await this.prisma.product.create({ data: dto })
+
+    // Log audit entry
+    await this.auditLog.log({
+      adminId,
+      action: 'CREATE_PRODUCT',
+      entityType: 'PRODUCT',
+      entityId: product.id,
+      beforeState: null,
+      afterState: product,
+      ipAddress,
+      userAgent,
+    })
+
+    return product
   }
 
-  update(id: number, dto: UpdateProductDto) {
-    return this.prisma.product.update({ where: { id }, data: dto })
+  /**
+   * Update product with audit logging
+   */
+  async update(
+    id: number,
+    dto: UpdateProductDto,
+    adminId: number,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    const before = await this.prisma.product.findUnique({ where: { id } })
+
+    const after = await this.prisma.product.update({ where: { id }, data: dto })
+
+    // Log audit entry
+    await this.auditLog.log({
+      adminId,
+      action: 'UPDATE_PRODUCT',
+      entityType: 'PRODUCT',
+      entityId: id,
+      beforeState: before,
+      afterState: after,
+      ipAddress,
+      userAgent,
+    })
+
+    return after
   }
 
+  /**
+   * PHASE 2: Soft delete — mark product as inactive instead of hard delete
+   * Product remains in database for historical reference
+   */
+  async deactivate(id: number, adminId: number, ipAddress?: string, userAgent?: string) {
+    const before = await this.prisma.product.findUnique({ where: { id } })
+
+    const after = await this.prisma.product.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+      },
+    })
+
+    // Log audit entry
+    await this.auditLog.log({
+      adminId,
+      action: 'DEACTIVATE_PRODUCT',
+      entityType: 'PRODUCT',
+      entityId: id,
+      beforeState: before,
+      afterState: after,
+      ipAddress,
+      userAgent,
+    })
+
+    return after
+  }
+
+  /**
+   * DEPRECATED: Hard delete removed
+   * Use deactivate() instead
+   */
   remove(id: number) {
-    return this.prisma.product.delete({ where: { id } })
+    throw new Error('Hard delete not allowed. Use deactivate() instead.')
   }
 }
