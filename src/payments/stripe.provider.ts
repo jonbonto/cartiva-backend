@@ -41,7 +41,7 @@ export class StripePaymentProvider implements PaymentProvider {
       throw new Error('STRIPE_WEBHOOK_SECRET not set in environment')
     }
 
-    this.stripe = new Stripe(apiKey, { apiVersion: '2019-02-19' })
+    this.stripe = new Stripe(apiKey)
     this.webhookSecret = webhookSecret
   }
 
