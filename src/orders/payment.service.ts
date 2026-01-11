@@ -8,6 +8,9 @@ import { PrismaService } from '../prisma/prisma.service'
 import { OrdersService } from './orders.service'
 import { PaymentProvider, PaymentIntent, PaymentResult } from '../common/types/payment'
 import { PaymentProviderRegistry } from '../common/types/payment'
+import { StripePaymentProvider } from '../payments/stripe.provider'
+import { MidtransPaymentProvider } from '../payments/midtrans.provider'
+import { MockPaymentProvider } from '../common/types/payment-providers-impl'
 import crypto from 'crypto'
 
 /**
@@ -29,16 +32,25 @@ export class OrderPaymentService {
 
   constructor(
     private prisma: PrismaService,
-    private ordersService: OrdersService
+    private ordersService: OrdersService,
+    private stripeProvider: StripePaymentProvider,
+    private midtransProvider: MidtransPaymentProvider
   ) {
     this.paymentProviderRegistry = new PaymentProviderRegistry()
+    
+    // Register payment providers
+    this.paymentProviderRegistry.register(this.stripeProvider)
+    this.paymentProviderRegistry.register(this.midtransProvider)
+    this.paymentProviderRegistry.register(new MockPaymentProvider()) // For testing
+    
+    this.logger.log('Payment providers registered: stripe, midtrans, mock')
   }
 
   /**
-   * Register a payment provider
+   * Get available payment providers
    */
-  registerPaymentProvider(provider: PaymentProvider): void {
-    this.paymentProviderRegistry.register(provider)
+  getAvailableProviders(): string[] {
+    return this.paymentProviderRegistry.listProviders()
   }
 
   /**

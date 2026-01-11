@@ -9,7 +9,7 @@ import { Money } from '../../common/types/money'
  * Create order request DTO
  * Frontend sends this during checkout
  */
-export class CreateOrderDto {
+export interface CreateOrderDto {
   cartId: number
   currency: string // 'USD', 'EUR', etc.
   discountCodes?: string[] // Optional: codes to apply
