@@ -1,173 +1,340 @@
 import { Injectable, Logger } from '@nestjs/common'
+import sgMail from '@sendgrid/mail'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as Handlebars from 'handlebars'
 
 /**
- * PHASE 6: Email Service
- * 
+ * Email Template Context
+ * Defines the data structure passed to email templates
+ */
+interface EmailTemplateContext {
+  orderId: string
+  items?: Array<{
+    productName: string
+    quantity: number
+    unitPrice: number
+    subtotal: number
+  }>
+  subtotal?: number
+  discount?: number
+  tax?: number
+  shipping?: number
+  total?: number
+  amount?: number
+  paymentMethod?: string
+  transactionId?: string
+  paidAt?: Date
+  attemptedAt?: Date
+  orderTotal?: number
+  reason?: string
+  checkoutUrl: string
+  supportUrl?: string
+  companyName: string
+  currentYear: number
+  [key: string]: any
+}
+
+/**
+ * Email Template Type
+ */
+type EmailTemplate = 'order-confirmation' | 'payment-success' | 'payment-failed'
+
+/**
+ * PHASE 6: SendGrid Email Service
+ *
  * Responsibilities:
- * - Send transactional emails
- * - Queue emails for reliability (even if simple)
- * - Never block main application flow
- * - Log all emails for audit trail
- * 
- * Implementation:
- * - Currently uses console logging (for demo)
- * - Can be swapped for SendGrid, AWS SES, etc. via abstraction
- * 
- * Future: Integrate with job queue (Bull, RabbitMQ, etc.)
+ * - Send production-grade transactional emails via SendGrid
+ * - Support HTML templates with Handlebars templating
+ * - Handle non-production environments (sandbox/disabled mode)
+ * - Provide comprehensive error handling and logging
+ * - Never block main application flow (queue-ready)
+ *
+ * Architecture:
+ * - Clean separation of email logic from business logic
+ * - Dependency injection for easy testing/mocking
+ * - Environment-based configuration
+ * - Graceful degradation for development environments
+ *
+ * Security:
+ * - Never expose API keys in logs
+ * - Validate email addresses before sending
+ * - Rate limiting support via SendGrid
+ * - Audit trail via logging
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name)
+  private readonly sendgridApiKey: string
+  private readonly fromEmail: string
+  private readonly isProduction: boolean
+  private readonly templateCache: Map<EmailTemplate, HandlebarsTemplateDelegate> =
+    new Map()
+
+  constructor() {
+    // Configuration from environment
+    this.sendgridApiKey = process.env.SENDGRID_API_KEY || ''
+    this.fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@ecommerce.local'
+    this.isProduction =
+      process.env.NODE_ENV === 'production' &&
+      !!this.sendgridApiKey
+
+    // Initialize SendGrid only in production
+    if (this.isProduction) {
+      sgMail.setApiKey(this.sendgridApiKey)
+      this.logger.log('SendGrid initialized (production mode)')
+    } else {
+      this.logger.warn(
+        'SendGrid disabled - running in development mode. Emails will be logged.'
+      )
+    }
+
+    // Pre-load templates
+    this.preloadTemplates()
+  }
 
   /**
    * Send order confirmation email
-   * Triggered after order is created (before payment)
    */
   async sendOrderConfirmation(
-    email: string,
+    recipientEmail: string,
     orderId: string,
     items: Array<{ productName: string; quantity: number; unitPriceCents: number }>,
     totalCents: number,
     currency: string
   ): Promise<void> {
-    const subject = `Order Confirmation #${orderId}`
-    const totalFormatted = (totalCents / 100).toFixed(2)
-    const itemsHtml = items
-      .map(
-        (item) =>
-          `<tr><td>${item.productName}</td><td>${item.quantity}</td><td>${((item.unitPriceCents * item.quantity) / 100).toFixed(2)} ${currency}</td></tr>`
-      )
-      .join('')
+    const context: EmailTemplateContext = {
+      orderId,
+      items: items.map((item) => ({
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPriceCents / 100,
+        subtotal: (item.unitPriceCents * item.quantity) / 100,
+      })),
+      subtotal: totalCents / 100,
+      total: totalCents / 100,
+      checkoutUrl: `${process.env.FRONTEND_URL}/checkout/${orderId}`,
+      companyName: process.env.COMPANY_NAME || 'E-Commerce Store',
+      currentYear: new Date().getFullYear(),
+    }
 
-    const html = `
-      <h1>Order Confirmation</h1>
-      <p>Thank you for your order!</p>
-      <p><strong>Order ID:</strong> ${orderId}</p>
-      <table border="1" cellpadding="8">
-        <tr><th>Product</th><th>Quantity</th><th>Amount</th></tr>
-        ${itemsHtml}
-      </table>
-      <p><strong>Total:</strong> ${totalFormatted} ${currency}</p>
-      <p>Your order is ready for payment. Please continue to checkout to complete your purchase.</p>
-    `
-
-    await this.sendEmail(email, subject, html)
+    await this.sendEmail(
+      recipientEmail,
+      'order-confirmation',
+      `Order Confirmation #${orderId}`,
+      context
+    )
   }
 
   /**
    * Send payment success email
-   * Triggered when webhook confirms payment is paid
    */
   async sendPaymentSuccess(
-    email: string,
+    recipientEmail: string,
     orderId: string,
     amountCents: number,
     currency: string,
-    provider: string
+    provider: string,
+    transactionId: string
   ): Promise<void> {
-    const subject = `Payment Confirmed #${orderId}`
-    const amount = (amountCents / 100).toFixed(2)
+    const context: EmailTemplateContext = {
+      orderId,
+      amount: amountCents / 100,
+      paymentMethod: this.formatPaymentMethod(provider),
+      transactionId,
+      paidAt: new Date(),
+      checkoutUrl: `${process.env.FRONTEND_URL}/orders/${orderId}`,
+      supportUrl: `${process.env.FRONTEND_URL}/support`,
+      companyName: process.env.COMPANY_NAME || 'E-Commerce Store',
+      currentYear: new Date().getFullYear(),
+    }
 
-    const html = `
-      <h1>Payment Confirmed</h1>
-      <p>Thank you! Your payment has been received successfully.</p>
-      <p><strong>Order ID:</strong> ${orderId}</p>
-      <p><strong>Amount:</strong> ${amount} ${currency}</p>
-      <p><strong>Payment Provider:</strong> ${provider}</p>
-      <p>Your order is now being processed. We'll send you tracking information once it ships.</p>
-    `
-
-    await this.sendEmail(email, subject, html)
+    await this.sendEmail(
+      recipientEmail,
+      'payment-success',
+      `Payment Confirmed #${orderId}`,
+      context
+    )
   }
 
   /**
    * Send payment failure email
-   * Triggered when webhook confirms payment failed
    */
   async sendPaymentFailure(
-    email: string,
+    recipientEmail: string,
     orderId: string,
+    orderTotalCents: number,
     reason?: string
   ): Promise<void> {
-    const subject = `Payment Failed #${orderId}`
+    const context: EmailTemplateContext = {
+      orderId,
+      orderTotal: orderTotalCents / 100,
+      reason:
+        reason ||
+        'Your payment could not be processed. Please try again or contact support.',
+      checkoutUrl: `${process.env.FRONTEND_URL}/checkout/${orderId}`,
+      supportUrl: `${process.env.FRONTEND_URL}/support`,
+      attemptedAt: new Date(),
+      companyName: process.env.COMPANY_NAME || 'E-Commerce Store',
+      currentYear: new Date().getFullYear(),
+    }
 
-    const html = `
-      <h1>Payment Failed</h1>
-      <p>Unfortunately, your payment could not be processed.</p>
-      <p><strong>Order ID:</strong> ${orderId}</p>
-      ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-      <p>Please try again with a different payment method or contact us for assistance.</p>
-    `
-
-    await this.sendEmail(email, subject, html)
+    await this.sendEmail(
+      recipientEmail,
+      'payment-failed',
+      `Payment Failed #${orderId}`,
+      context
+    )
   }
 
   /**
-   * Send refund confirmation email
-   * Triggered when admin initiates refund
-   */
-  async sendRefundConfirmation(
-    email: string,
-    orderId: string,
-    refundAmountCents: number,
-    totalAmountCents: number,
-    currency: string,
-    reason?: string
-  ): Promise<void> {
-    const refundAmount = (refundAmountCents / 100).toFixed(2)
-    const totalAmount = (totalAmountCents / 100).toFixed(2)
-    const isPartial = refundAmountCents < totalAmountCents
-
-    const subject = `Refund Confirmation #${orderId}`
-
-    const html = `
-      <h1>${isPartial ? 'Partial Refund' : 'Refund'} Confirmation</h1>
-      <p>We have processed a refund for your order.</p>
-      <p><strong>Order ID:</strong> ${orderId}</p>
-      <p><strong>Original Amount:</strong> ${totalAmount} ${currency}</p>
-      <p><strong>Refunded Amount:</strong> ${refundAmount} ${currency}</p>
-      ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-      <p>The refund will be credited back to your original payment method within 3-5 business days.</p>
-    `
-
-    await this.sendEmail(email, subject, html)
-  }
-
-  /**
-   * Core email sending logic
-   * Can be overridden by actual email provider implementation
+   * Generic email sender with template support
+   *
+   * @param to Recipient email address
+   * @param template Template name
+   * @param subject Email subject
+   * @param context Data for template rendering
    */
   private async sendEmail(
     to: string,
+    template: EmailTemplate,
     subject: string,
-    html: string
+    context: EmailTemplateContext
   ): Promise<void> {
     try {
-      // For now, log to console (demo)
-      this.logger.log(`
-        ──────────────────────────────────────
-        EMAIL QUEUED FOR DELIVERY
-        ──────────────────────────────────────
-        To: ${to}
-        Subject: ${subject}
-        ──────────────────────────────────────
-        ${html}
-        ──────────────────────────────────────
-      `)
+      // Validate email
+      if (!this.isValidEmail(to)) {
+        this.logger.warn(`Skipped email to invalid address: ${to}`)
+        return
+      }
 
-      // Future: Queue to job service
-      // await this.jobService.queueEmail({ to, subject, html })
+      // Get compiled template
+      const compiledTemplate =
+        this.templateCache.get(template) || this.loadTemplate(template)
 
-      // Or send directly:
-      // await this.sendGridService.send({ to, subject, html })
-      // await this.sesService.send({ to, subject, html })
+      // Render HTML
+      const html = compiledTemplate(context)
+
+      // Development mode: log only
+      if (!this.isProduction) {
+        this.logger.log(`[EMAIL] ${to} - ${subject}`)
+        this.logger.debug(`[EMAIL HTML]\n${html}`)
+        return
+      }
+
+      // Production: send via SendGrid
+      const message = {
+        to,
+        from: this.fromEmail,
+        subject,
+        html,
+        replyTo: process.env.SUPPORT_EMAIL || this.fromEmail,
+      }
+
+      const response = await sgMail.send(message)
+      this.logger.log(
+        `Email sent to ${to}: ${subject} [MessageId: ${response[0].headers['x-message-id']}]`
+      )
     } catch (error) {
       this.logger.error(
-        `Failed to queue email to ${to}: ${error.message}`,
-        error.stack
+        `Failed to send email to ${to}: ${error instanceof Error ? error.message : String(error)}`
       )
-      // CRITICAL: Do NOT throw - email failures should not block main flow
-      // Instead, log for manual retry
+      // In production, log but don't throw - emails should not block order flow
+      // Consider implementing a retry queue (Bull, RabbitMQ, etc.)
     }
+  }
+
+  /**
+   * Load template from disk and compile with Handlebars
+   */
+  private loadTemplate(template: EmailTemplate): HandlebarsTemplateDelegate {
+    try {
+      const templatePath = path.join(
+        __dirname,
+        'templates',
+        `${template}.hbs`
+      )
+      const templateContent = fs.readFileSync(templatePath, 'utf-8')
+
+      // Register custom helpers
+      this.registerHandlebarsHelpers()
+
+      const compiled = Handlebars.compile(templateContent)
+      this.templateCache.set(template, compiled)
+
+      return compiled
+    } catch (error) {
+      this.logger.error(
+        `Failed to load template ${template}: ${error instanceof Error ? error.message : String(error)}`
+      )
+      throw error
+    }
+  }
+
+  /**
+   * Pre-load all templates at startup
+   */
+  private preloadTemplates(): void {
+    const templates: EmailTemplate[] = [
+      'order-confirmation',
+      'payment-success',
+      'payment-failed',
+    ]
+
+    for (const template of templates) {
+      try {
+        this.loadTemplate(template)
+        this.logger.debug(`Preloaded template: ${template}`)
+      } catch (error) {
+        this.logger.warn(
+          `Failed to preload template ${template}: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+    }
+  }
+
+  /**
+   * Register Handlebars custom helpers
+   */
+  private registerHandlebarsHelpers(): void {
+    Handlebars.registerHelper('formatMoney', (cents: number) => {
+      if (typeof cents !== 'number') return '0.00'
+      return (cents / 100).toFixed(2)
+    })
+
+    Handlebars.registerHelper('formatDate', (date: Date) => {
+      if (!(date instanceof Date)) return ''
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    })
+
+    Handlebars.registerHelper('eq', (a: any, b: any) => a === b)
+  }
+
+  /**
+   * Validate email address format
+   */
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  /**
+   * Format payment provider name for display
+   */
+  private formatPaymentMethod(provider: string): string {
+    const map: Record<string, string> = {
+      stripe: 'Stripe',
+      midtrans: 'Midtrans',
+      paypal: 'PayPal',
+      credit_card: 'Credit Card',
+      debit_card: 'Debit Card',
+    }
+    return map[provider.toLowerCase()] || provider
   }
 }

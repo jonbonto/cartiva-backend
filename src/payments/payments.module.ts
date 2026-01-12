@@ -8,9 +8,20 @@
 import { Module } from '@nestjs/common'
 import { StripePaymentProvider } from './stripe.provider'
 import { MidtransPaymentProvider } from './midtrans.provider'
+import { WebhookLoggerService } from './webhook-logger.service'
+import { PrismaModule } from '../prisma/prisma.module'
 
 @Module({
-  providers: [StripePaymentProvider, MidtransPaymentProvider],
-  exports: [StripePaymentProvider, MidtransPaymentProvider],
+  imports: [PrismaModule],
+  providers: [
+    StripePaymentProvider,
+    MidtransPaymentProvider,
+    WebhookLoggerService,
+  ],
+  exports: [
+    StripePaymentProvider,
+    MidtransPaymentProvider,
+    WebhookLoggerService,
+  ],
 })
 export class PaymentsModule {}

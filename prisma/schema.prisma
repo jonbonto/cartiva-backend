@@ -185,6 +185,10 @@ model Refund {
   status              String   @default("REFUNDED") /// REFUNDED, FAILED, PENDING
   externalRefundId    String?  /// External refund ID from provider (e.g., Stripe refund ID)
   
+  /// Partial refund tracking (PHASE 6)
+  isPartial           Boolean  @default(false)
+  itemRefunds         ItemRefund[]
+  
   /// Metadata for debugging
   metadata            Json?    /// Provider-specific data
   
@@ -194,4 +198,62 @@ model Refund {
   @@index([paymentId])
   @@index([status])
   @@index([createdAt])
+}
+
+/// Item-level refund tracking for partial refunds
+model ItemRefund {
+  id              String @id @default(cuid())
+  refundId        String
+  orderItemId     String
+  amountCents     Int    /// Amount refunded for this specific item
+  quantity        Int    /// Quantity refunded (may be less than full qty)
+  
+  refund          Refund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([refundId, orderItemId])
+  @@index([refundId])
+}
+
+/// Webhook Log — stores all incoming payment webhooks for replay & audit (PHASE 6)
+model WebhookLog {
+  id                  String   @id @default(cuid())
+  
+  /// Webhook identification
+  provider            String   /// stripe, midtrans, paypal, etc.
+  eventType           String   /// payment.completed, payment.failed, etc.
+  externalEventId     String?  /// External event ID from provider
+  
+  /// Raw data
+  rawPayload          Json     /// Complete webhook payload
+  headers             Json     /// Webhook headers (for signature verification)
+  
+  /// Processing status
+  status              String   @default("PENDING") /// PENDING, PROCESSING, SUCCESS, FAILED
+  processedAt         DateTime?
+  errorMessage        String?
+  
+  /// Idempotency
+  idempotencyKey      String   @unique /// For deduplication
+  
+  /// Audit & debugging
+  ipAddress           String?  /// Source IP of webhook
+  attempts            Int      @default(0) /// Number of processing attempts
+  nextRetryAt         DateTime? /// Next scheduled retry
+  
+  /// Related resources
+  orderId             String?  /// Linked order if identifiable
+  paymentId           String?  /// Linked payment if identifiable
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@unique([provider, externalEventId])
+  @@index([provider])
+  @@index([status])
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([createdAt])
+  @@index([nextRetryAt])
 }

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 4px; margin-bottom: 20px; }
+        .order-id { font-size: 24px; font-weight: bold; color: #1a73e8; }
+        .section { margin-bottom: 20px; }
+        .section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #1a73e8; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .total { font-size: 18px; font-weight: bold; text-align: right; }
+        .button { display: inline-block; background: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 20px; }
+        .footer { color: #999; font-size: 12px; margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Confirmation</h1>
+            <p class="order-id">Order #{{orderId}}</p>
+            <p>Thank you for your order! We're excited to process it.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Order Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each items}}
+                    <tr>
+                        <td>{{this.productName}}</td>
+                        <td>{{this.quantity}}</td>
+                        <td>{{formatMoney this.unitPrice}}</td>
+                        <td>{{formatMoney this.subtotal}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Total</h2>
+            <table>
+                <tr>
+                    <td>Subtotal:</td>
+                    <td style="text-align: right;">{{formatMoney subtotal}}</td>
+                </tr>
+                {{#if discount}}
+                <tr>
+                    <td>Discount:</td>
+                    <td style="text-align: right;">-{{formatMoney discount}}</td>
+                </tr>
+                {{/if}}
+                {{#if tax}}
+                <tr>
+                    <td>Tax:</td>
+                    <td style="text-align: right;">{{formatMoney tax}}</td>
+                </tr>
+                {{/if}}
+                {{#if shipping}}
+                <tr>
+                    <td>Shipping:</td>
+                    <td style="text-align: right;">{{formatMoney shipping}}</td>
+                </tr>
+                {{/if}}
+                <tr style="border-top: 2px solid #1a73e8; font-weight: bold; font-size: 16px;">
+                    <td>Total:</td>
+                    <td style="text-align: right;">{{formatMoney total}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">What's Next?</h2>
+            <p>Your order is now awaiting payment. Click the button below to complete your purchase securely.</p>
+            <a href="{{checkoutUrl}}" class="button">Complete Payment</a>
+        </div>
+
+        <div class="footer">
+            <p>Questions? Reply to this email or visit our support page.</p>
+            <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -268,12 +268,15 @@ export class AdminOrdersService {
   }
 
   /**
-   * Get refund history for an order
+   * Get refund history for an order (with item details)
    */
   async getRefundHistory(orderId: string) {
     try {
       const refunds = await this.prisma.refund.findMany({
         where: { orderId },
+        include: {
+          itemRefunds: true,
+        },
         orderBy: { createdAt: 'desc' },
       })
 
@@ -284,7 +287,14 @@ export class AdminOrdersService {
           amountCents: r.amountCents,
           reason: r.reason,
           status: r.status,
+          isPartial: r.isPartial,
           externalRefundId: r.externalRefundId,
+          itemRefunds: r.itemRefunds.map((ir) => ({
+            id: ir.id,
+            orderItemId: ir.orderItemId,
+            amountCents: ir.amountCents,
+            quantity: ir.quantity,
+          })),
           createdAt: r.createdAt,
         })),
       }

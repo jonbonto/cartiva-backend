@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8d7da; padding: 20px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #f5c6cb; }
+        .header h1 { color: #721c24; margin: 0 0 10px 0; }
+        .order-id { font-size: 20px; font-weight: bold; color: #721c24; }
+        .section { margin-bottom: 20px; }
+        .section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #1a73e8; }
+        .reason-box { background: #fff3cd; padding: 15px; border-radius: 4px; border-left: 4px solid #ffc107; margin: 10px 0; }
+        .button { display: inline-block; background: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 10px; margin-right: 10px; }
+        .button-secondary { display: inline-block; background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 10px; }
+        .footer { color: #999; font-size: 12px; margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Payment Failed</h1>
+            <p class="order-id">Order #{{orderId}}</p>
+        </div>
+
+        <div class="section">
+            <p>Unfortunately, your payment could not be processed. Your order is still waiting and ready to be completed.</p>
+        </div>
+
+        {{#if reason}}
+        <div class="reason-box">
+            <strong>Why this happened:</strong>
+            <p>{{reason}}</p>
+        </div>
+        {{/if}}
+
+        <div class="section">
+            <h2 class="section-title">What You Can Do</h2>
+            <ul>
+                <li>Try again with the same payment method</li>
+                <li>Try a different credit or debit card</li>
+                <li>Contact your bank to check for any fraud alerts</li>
+                <li>Use a different payment method if available</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Ready to Try Again?</h2>
+            <a href="{{checkoutUrl}}" class="button">Retry Payment</a>
+            <a href="{{supportUrl}}" class="button-secondary">Contact Support</a>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Order Summary</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px;">Order Total:</td>
+                    <td style="text-align: right; padding: 10px; font-weight: bold;">{{formatMoney orderTotal}}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px;">Attempted At:</td>
+                    <td style="text-align: right; padding: 10px;">{{formatDate attemptedAt}}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px;">Order Reference:</td>
+                    <td style="text-align: right; padding: 10px; font-family: monospace;">{{orderId}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>Questions or need help? Our support team is here for you.</p>
+            <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
