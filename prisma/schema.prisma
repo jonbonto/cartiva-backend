@@ -70,7 +70,7 @@ model User {
 /// Order — immutable snapshot of a checkout
 model Order {
   id              String   @id @default(cuid())
-  userId          Int?     /// Optional for guest checkouts
+  userId          Int      /// Required: All orders must have user ID
   currency        String   /// ISO 4217 code (USD, EUR, etc.)
   
   /// Items snapshot (locked prices at purchase time)

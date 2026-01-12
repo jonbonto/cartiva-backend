@@ -34,13 +34,13 @@ export class OrdersService {
    * - Locks cart so it cannot be reused
    * 
    * @param cartId Cart to checkout
-   * @param userId User ID (optional for guests)
+   * @param userId User ID (required - authenticated users only)
    * @param createOrderDto Currency and discount codes
    * @returns Created order
    */
   async createOrderFromCart(
     cartId: number,
-    userId: number | undefined,
+    userId: number,
     createOrderDto: CreateOrderDto
   ): Promise<OrderType> {
     // 1. Fetch cart with items
@@ -169,7 +169,7 @@ export class OrdersService {
     // 7. Build order object
     const order: OrderType = {
       id: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: userId?.toString(),
+      userId: userId.toString(),
       currency: createOrderDto.currency as 'USD' | 'EUR' | 'GBP' | 'JPY' | 'IDR',
       items: orderItems,
       subtotal,
@@ -202,7 +202,7 @@ export class OrdersService {
       const dbOrder = await this.prisma.order.create({
         data: {
           id: order.id,
-          userId: order.userId ? parseInt(order.userId) : null,
+          userId: parseInt(order.userId),
           currency: order.currency,
           subtotalAmountCents: order.subtotal.amountCents,
           discountTotalAmountCents: order.discountTotal.amountCents,

@@ -46,6 +46,8 @@ export class OrdersController {
    * POST /api/orders/checkout
    * Create an order from cart
    * 
+   * Required: User must be authenticated
+   * 
    * Request:
    * {
    *   cartId: number
@@ -63,8 +65,9 @@ export class OrdersController {
    *   createdAt: Date
    * }
    */
+  @UseGuards(JwtAuthGuard)
   @Post('checkout')
-  async checkout(@Body() createOrderDto: CreateOrderDto) {
+  async checkout(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     if (!createOrderDto.cartId) {
       throw new BadRequestException('cartId is required')
     }
@@ -73,10 +76,16 @@ export class OrdersController {
       throw new BadRequestException('currency is required')
     }
 
+    // Extract userId from JWT token
+    const userId = req.user?.id
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token')
+    }
+
     try {
       const order = await this.ordersService.createOrderFromCart(
         createOrderDto.cartId,
-        undefined, // Guest checkout for now
+        userId,
         createOrderDto
       )
 
@@ -99,11 +108,12 @@ export class OrdersController {
   /**
    * GET /api/orders/:id
    * Get order details
-   * Authentication optional (can view guest orders for 30 days)
+   * Authentication required - users can only view their own orders
    */
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getOrder(@Param('id') orderId: string, @Request() req?: any) {
-    const userId = req?.user?.sub
+  async getOrder(@Param('id') orderId: string, @Request() req: any) {
+    const userId = req.user?.id
 
     try {
       const order = await this.ordersService.getOrderById(orderId, userId)
