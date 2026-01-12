@@ -13,11 +13,13 @@ import {
   RawBodyRequest,
   Headers,
   Req,
+  Inject,
 } from '@nestjs/common'
 import { OrdersService } from './orders.service'
 import { OrderPaymentService } from './payment.service'
 import { CreateOrderDto } from './dto/order.dto'
 import { JwtGuard } from '../auth/guards/jwt.guard'
+import { PrismaService } from '../prisma/prisma.service'
 
 /**
  * PHASE 5: Orders Controller
@@ -36,7 +38,8 @@ export class OrdersController {
 
   constructor(
     private ordersService: OrdersService,
-    private orderPaymentService: OrderPaymentService
+    private orderPaymentService: OrderPaymentService,
+    private prisma: PrismaService,
   ) {}
 
   /**
@@ -182,6 +185,113 @@ export class OrdersController {
   }
 
   /**
+   * GET /api/orders/:id/tracking (Customer Tracking - PHASE 7)
+   * Get order tracking information (public endpoint for customers)
+   * 
+   * Response:
+   * {
+   *   orderId: string
+   *   fulfillmentStatus: string
+   *   shippingProvider?: string
+   *   trackingNumber?: string
+   *   timeline: Array<{status, timestamp, completed}>
+   * }
+   */
+  @Get(':id/tracking')
+  async getOrderTracking(@Param('id') orderId: string) {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          status: true,
+          fulfillmentStatus: true,
+          shippingProvider: true,
+          trackingNumber: true,
+          createdAt: true,
+          paidAt: true,
+          shippedAt: true,
+          deliveredAt: true,
+        },
+      })
+
+      if (!order) {
+        throw new BadRequestException('Order not found')
+      }
+
+      // Build timeline
+      const timeline = []
+
+      timeline.push({
+        status: 'created',
+        label: 'Order Created',
+        timestamp: order.createdAt,
+        completed: true,
+      })
+
+      if (order.paidAt) {
+        timeline.push({
+          status: 'paid',
+          label: 'Payment Confirmed',
+          timestamp: order.paidAt,
+          completed: true,
+        })
+      }
+
+      timeline.push({
+        status: 'processing',
+        label: 'Processing',
+        timestamp: null,
+        completed: ['processing', 'shipped', 'delivered'].includes(
+          order.fulfillmentStatus,
+        ),
+      })
+
+      if (order.shippedAt || order.fulfillmentStatus === 'shipped') {
+        timeline.push({
+          status: 'shipped',
+          label: 'Shipped',
+          timestamp: order.shippedAt,
+          completed: true,
+        })
+      }
+
+      if (order.deliveredAt || order.fulfillmentStatus === 'delivered') {
+        timeline.push({
+          status: 'delivered',
+          label: 'Delivered',
+          timestamp: order.deliveredAt,
+          completed: order.fulfillmentStatus === 'delivered',
+        })
+      }
+
+      if (order.fulfillmentStatus === 'cancelled') {
+        timeline.push({
+          status: 'cancelled',
+          label: 'Cancelled',
+          timestamp: null,
+          completed: true,
+        })
+      }
+
+      return {
+        success: true,
+        data: {
+          orderId: order.id,
+          orderStatus: order.status,
+          fulfillmentStatus: order.fulfillmentStatus,
+          shippingProvider: order.shippingProvider,
+          trackingNumber: order.trackingNumber,
+          timeline,
+        },
+      }
+    } catch (error) {
+      this.logger.error(`Failed to get tracking: ${error.message}`)
+      throw error
+    }
+  }
+
+  /**
    * POST /api/webhooks/:provider
    * Handle payment provider webhook
    * 
@@ -259,6 +369,56 @@ export class OrdersController {
       return { success: true, message: 'Payment refunded' }
     } catch (error) {
       this.logger.error(`Refund failed: ${error.message}`)
+      throw error
+    }
+  }
+
+  /**
+   * GET /api/orders (Customer Order History - PHASE 7)
+   * Get customer's own orders with pagination
+   * 
+   * Query Params:
+   * - page: number (default: 1)
+   * - limit: number (default: 20, max: 100)
+   * - status: string (optional filter)
+   * - sortBy: 'createdAt' | 'paidAt' (default: 'createdAt')
+   * - sortOrder: 'asc' | 'desc' (default: 'desc')
+   * 
+   * Authentication: Required (JWT)
+   * 
+   * Response:
+   * {
+   *   data: Order[]
+   *   pagination: { page, limit, total, totalPages }
+   * }
+   */
+  @Get()
+  @UseGuards(JwtGuard)
+  async getCustomerOrders(@Request() req: any, @Req() request: any) {
+    const userId = req.user.id
+    const page = parseInt(request.query.page as string) || 1
+    const limit = Math.min(parseInt(request.query.limit as string) || 20, 100)
+    const status = request.query.status as string
+    const sortBy = (request.query.sortBy as string) || 'createdAt'
+    const sortOrder = (request.query.sortOrder as 'asc' | 'desc') || 'desc'
+
+    try {
+      const result = await this.ordersService.getCustomerOrders({
+        userId,
+        page,
+        limit,
+        status,
+        sortBy,
+        sortOrder,
+      })
+
+      return {
+        success: true,
+        data: result.orders,
+        pagination: result.pagination,
+      }
+    } catch (error) {
+      this.logger.error(`Failed to fetch customer orders: ${error.message}`)
       throw error
     }
   }

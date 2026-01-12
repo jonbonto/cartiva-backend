@@ -92,6 +92,13 @@ model Order {
   /// Order status
   status                  String @default("PENDING") /// PENDING, CHECKOUT, PAYMENT_FAILED, PAID, FULFILLED, CANCELLED
   
+  /// Fulfillment tracking (PHASE 7)
+  fulfillmentStatus       String @default("pending") /// pending, processing, shipped, delivered, cancelled
+  shippingProvider        String? /// FedEx, UPS, USPS, DHL, etc.
+  trackingNumber          String? /// Tracking number from shipping provider
+  shippedAt               DateTime? /// When order was shipped
+  deliveredAt             DateTime? /// When order was delivered
+  
   /// Metadata
   createdAt               DateTime @default(now())
   paidAt                  DateTime?
@@ -103,6 +110,7 @@ model Order {
   
   @@index([userId])
   @@index([status])
+  @@index([fulfillmentStatus])
   @@index([createdAt])
 }
 
@@ -256,4 +264,44 @@ model WebhookLog {
   @@index([paymentId])
   @@index([createdAt])
   @@index([nextRetryAt])
+}
+
+/// Analytics Snapshot — pre-aggregated metrics for fast dashboard loading (PHASE 7)
+model AnalyticsSnapshot {
+  id                    String   @id @default(cuid())
+  
+  /// Time period
+  date                  DateTime /// Date of the snapshot (start of day/hour)
+  granularity           String   /// daily, hourly
+  
+  /// Revenue metrics
+  revenueCents          Int      @default(0) /// Total revenue for period
+  orderCount            Int      @default(0) /// Number of orders
+  paidOrderCount        Int      @default(0) /// Successfully paid orders
+  failedOrderCount      Int      @default(0) /// Failed payment orders
+  cancelledOrderCount   Int      @default(0) /// Cancelled orders
+  
+  /// Refund metrics
+  refundCount           Int      @default(0) /// Number of refunds
+  refundAmountCents     Int      @default(0) /// Total refund amount
+  partialRefundCount    Int      @default(0) /// Partial refunds
+  fullRefundCount       Int      @default(0) /// Full refunds
+  
+  /// Average order value
+  avgOrderValueCents    Int      @default(0) /// Average order value
+  
+  /// Payment provider breakdown (JSON)
+  providerBreakdown     Json?    /// {stripe: 1000, midtrans: 500, etc.}
+  
+  /// Fulfillment metrics
+  shippedOrderCount     Int      @default(0) /// Orders shipped
+  deliveredOrderCount   Int      @default(0) /// Orders delivered
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@unique([date, granularity])
+  @@index([date])
+  @@index([granularity])
+  @@index([createdAt])
 }

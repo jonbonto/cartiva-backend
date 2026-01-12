@@ -306,4 +306,70 @@ export class OrdersService {
       )
     }
   }
+
+  /**
+   * Get customer's orders with pagination (PHASE 7)
+   * 
+   * @param params - Query parameters
+   * @returns Paginated order list
+   */
+  async getCustomerOrders(params: {
+    userId: number
+    page: number
+    limit: number
+    status?: string
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }) {
+    const { userId, page, limit, status, sortBy = 'createdAt', sortOrder = 'desc' } = params
+
+    const skip = (page - 1) * limit
+
+    // Build where clause
+    const where: any = { userId }
+    if (status) {
+      where.status = status
+    }
+
+    // Count total orders
+    const total = await this.prisma.order.count({ where })
+
+    // Fetch orders with pagination
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        id: true,
+        currency: true,
+        status: true,
+        fulfillmentStatus: true,
+        finalTotalAmountCents: true,
+        createdAt: true,
+        paidAt: true,
+        shippedAt: true,
+        deliveredAt: true,
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            quantity: true,
+            unitPriceCents: true,
+            subtotalAmountCents: true,
+          },
+        },
+      },
+      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take: limit,
+    })
+
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    }
+  }
 }
