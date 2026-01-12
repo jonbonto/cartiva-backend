@@ -17,6 +17,7 @@ import { UpdateProductDto } from '../products/dto/update-product.dto'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { extname, join } from 'path'
+import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AdminGuard } from '../auth/guards/admin.guard'
 import { GetRequestInfo, RequestInfo } from '../common/decorators/request-info.decorator'
 
@@ -34,20 +35,20 @@ function storageOptions() {
 export class AdminController {
   constructor(private productsService: ProductsService) {}
 
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('products')
   async listProducts(@GetRequestInfo() info: RequestInfo) {
     // Admins see all products including inactive
     return this.productsService.findAll(true)
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('products/:id')
   async getProduct(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.findOne(id)
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(FileInterceptor('image', { storage: storageOptions() }))
   @Post('products')
   async createProduct(
@@ -61,7 +62,7 @@ export class AdminController {
     return this.productsService.create(body, info.userId, info.ipAddress, info.userAgent)
   }
 
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(FileInterceptor('image', { storage: storageOptions() }))
   @Put('products/:id')
   async updateProduct(
@@ -78,7 +79,7 @@ export class AdminController {
    * PHASE 2: Soft delete endpoint
    * Marks product as inactive instead of hard delete
    */
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('products/:id/deactivate')
   async deactivateProduct(
     @Param('id', ParseIntPipe) id: number,

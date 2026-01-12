@@ -10,6 +10,7 @@ import {
   Logger,
 } from '@nestjs/common'
 import { AdminOrdersService } from './admin-orders.service'
+import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AdminGuard } from '../auth/guards/admin.guard'
 
 /**
@@ -23,7 +24,7 @@ import { AdminGuard } from '../auth/guards/admin.guard'
  * All endpoints require admin authentication
  */
 @Controller('api/admin/orders')
-@UseGuards(AdminGuard)
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminOrdersController {
   private readonly logger = new Logger(AdminOrdersController.name)
 
