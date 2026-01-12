@@ -3,7 +3,7 @@ import { Response } from 'express'
 import { AuthService } from './auth.service'
 import { SignupDto } from './dto/signup.dto'
 import { LoginDto } from './dto/login.dto'
-import { JwtGuard } from './guards/jwt.guard'
+import { JwtAuthGuard } from './guards/jwt.guard'
 
 @Controller('api/auth')
 export class AuthController {
@@ -23,7 +23,7 @@ export class AuthController {
     return res.json({ user, token })
   }
 
-  @UseGuards(JwtGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   async me(@Req() req: any) {
     return this.authService.me(req.user.id)

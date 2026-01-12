@@ -18,7 +18,7 @@ import {
 import { OrdersService } from './orders.service'
 import { OrderPaymentService } from './payment.service'
 import { CreateOrderDto } from './dto/order.dto'
-import { JwtGuard } from '../auth/guards/jwt.guard'
+import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { PrismaService } from '../prisma/prisma.service'
 
 /**
@@ -358,7 +358,7 @@ export class OrdersController {
    * Requires authentication
    */
   @Post(':id/refund')
-  @UseGuards(JwtGuard)
+  @UseGuards(JwtAuthGuard)
   async refundPayment(
     @Param('id') orderId: string,
     @Body() body: { reason?: string },
@@ -393,7 +393,7 @@ export class OrdersController {
    * }
    */
   @Get()
-  @UseGuards(JwtGuard)
+  @UseGuards(JwtAuthGuard)
   async getCustomerOrders(@Request() req: any, @Req() request: any) {
     const userId = req.user.id
     const page = parseInt(request.query.page as string) || 1
