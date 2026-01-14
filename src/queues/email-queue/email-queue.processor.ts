@@ -97,7 +97,7 @@ export class EmailQueueProcessor {
    */
   @Process('payment-failed')
   async handlePaymentFailed(job: Job<PaymentFailedEmailJob>): Promise<void> {
-    const { to, orderId, amountCents, currency, reason } = job.data;
+    const { to, orderId, amountCents, reason } = job.data;
 
     this.logger.debug(`Processing payment failed email for order ${orderId}`);
 
@@ -106,7 +106,6 @@ export class EmailQueueProcessor {
         to,
         orderId,
         amountCents,
-        currency,
         reason,
       );
 

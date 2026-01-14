@@ -327,9 +327,16 @@ export class OrdersController {
   ) {
     const signature = stripeSignature || midtransSignature || paypalSignature || ''
 
+    this.logger.log(`🔔 WEBHOOK RECEIVED - Provider: ${provider}`)
+    this.logger.log(`   Signature Header Present: ${!!stripeSignature || !!midtransSignature || !!paypalSignature}`)
+    this.logger.log(`   Raw Body Available: ${!!req.rawBody}`)
+    this.logger.log(`   Body Type: ${typeof req.body}`)
+
     try {
       // Body might be raw buffer for signature verification
       const body = req.rawBody || JSON.stringify(req.body)
+
+      this.logger.log(`   Processing webhook with payload of ${typeof body === 'string' ? body.length : 'buffer'} bytes`)
 
       const result = await this.orderPaymentService.handleWebhook(
         provider,
@@ -337,11 +344,11 @@ export class OrdersController {
         signature
       )
 
-      this.logger.log(`Webhook handled for ${provider}: acknowledged=${result.acknowledged}`)
+      this.logger.log(`✅ Webhook handled for ${provider}: acknowledged=${result.acknowledged}`)
 
       return { acknowledged: result.acknowledged }
     } catch (error) {
-      this.logger.error(`Webhook processing error: ${error.message}`, error.stack)
+      this.logger.error(`❌ Webhook processing error: ${error.message}`, error.stack)
       // Return 200 anyway to prevent provider from retrying
       return { acknowledged: false, error: error.message }
     }

@@ -107,12 +107,24 @@ export class StripePaymentProvider implements PaymentProvider {
    * Verify Stripe webhook signature
    * 
    * Critical for security - ensures webhook is from Stripe
+   * Requires raw request body (not parsed JSON) for signature verification
    */
   async verifyWebhookSignature(
     rawPayload: string | Buffer,
     signature: string
   ): Promise<boolean> {
     try {
+      if (!signature) {
+        this.logger.warn('Webhook verification failed: No stripe-signature header provided')
+        return false
+      }
+
+      if (!this.webhookSecret) {
+        this.logger.error('Webhook verification failed: STRIPE_WEBHOOK_SECRET not configured')
+        return false
+      }
+
+      // Stripe requires the raw request body as string or Buffer
       const payload = typeof rawPayload === 'string' 
         ? rawPayload 
         : rawPayload.toString('utf-8')
@@ -124,10 +136,10 @@ export class StripePaymentProvider implements PaymentProvider {
         this.webhookSecret
       )
 
-      this.logger.debug(`Webhook verified: ${event.type}`)
+      this.logger.log(`Webhook verified successfully: ${event.type}`)
       return true
     } catch (error) {
-      this.logger.warn(`Webhook verification failed: ${error.message}`)
+      this.logger.warn(`[StripePaymentProvider] Webhook verification failed: ${error.message}`)
       return false
     }
   }

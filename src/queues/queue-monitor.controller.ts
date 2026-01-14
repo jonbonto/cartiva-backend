@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { createBullBoard } from 'bull-board';
-import { BullAdapter } from 'bull-board/bullAdapter';
+import { BullAdapter } from 'bull-board';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { EMAIL_QUEUE } from '../queues/email-queue/email-queue.module';

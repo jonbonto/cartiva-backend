@@ -176,7 +176,7 @@ export class OrderPaymentService {
     try {
       const isValid = await provider.verifyWebhookSignature(rawPayload, signature)
       if (!isValid) {
-        this.logger.warn(`Invalid webhook signature from ${providerName}`)
+        this.logger.warn(`Invalid webhook signature from ${providerName}, signature header: ${signature ? 'present' : 'missing'}`)
         return { acknowledged: false }
       }
     } catch (error) {
@@ -252,7 +252,8 @@ export class OrderPaymentService {
                 payment.orderId,
                 order.finalTotalAmountCents,
                 order.currency,
-                payment.provider
+                payment.provider,
+                paymentResult.intentId
               )
               .catch((err) =>
                 this.logger.error(`Failed to send payment success email: ${err.message}`)
@@ -263,7 +264,12 @@ export class OrderPaymentService {
         // Send payment failure email if failed
         if (paymentResult.status === 'failed' && order?.user?.email) {
           this.emailService
-            .sendPaymentFailure(order.user.email, payment.orderId)
+            .sendPaymentFailure(
+              order.user.email,
+              payment.orderId,
+              order.finalTotalAmountCents,
+              paymentResult.metadata?.errorMessage as string | undefined
+            )
             .catch((err) =>
               this.logger.error(`Failed to send payment failure email: ${err.message}`)
             )
