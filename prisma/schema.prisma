@@ -99,6 +99,11 @@ model Order {
   shippedAt               DateTime? /// When order was shipped
   deliveredAt             DateTime? /// When order was delivered
   
+  /// Shipping (PHASE 6)
+  shippingMethodId        String?
+  shippingMethod          ShippingMethod? @relation("ShippingMethod", fields: [shippingMethodId], references: [id])
+  shippingAddress         ShippingAddress? /// One-to-one with order
+  
   /// Metadata
   createdAt               DateTime @default(now())
   paidAt                  DateTime?
@@ -111,6 +116,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([fulfillmentStatus])
+  @@index([shippingMethodId])
   @@index([createdAt])
 }
 
@@ -124,9 +130,14 @@ model OrderItem {
   quantity              Int
   subtotalAmountCents   Int    /// unitPrice * quantity
   
+  /// Inventory reservation (PHASE 6)
+  reservationId         String?
+  reservation           InventoryReservation? @relation(fields: [reservationId], references: [id])
+  
   order                 Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
   @@index([orderId])
+  @@index([reservationId])
 }
 
 /// Payment — tracks payment provider interactions
@@ -304,4 +315,126 @@ model AnalyticsSnapshot {
   @@index([date])
   @@index([granularity])
   @@index([createdAt])
+}
+/// Tax Rule — defines tax rates by region (PHASE 6)
+model TaxRule {
+  id              String @id @default(cuid())
+  
+  /// Region targeting
+  country         String? /// ISO 3166-1 alpha-2 (US, CA, AU, etc.) or null for global
+  state           String? /// State/province code (CA, NY, etc.) or null for country-wide
+  city            String? /// City name or null for state-wide
+  
+  /// Tax rate
+  taxRatePercent  Float  /// Tax rate as percentage (e.g., 8.5 for 8.5%)
+  taxRateDecimal  Decimal @db.Decimal(5, 4) /// Precise decimal format (0.0850 for 8.5%)
+  
+  /// Status
+  isActive        Boolean @default(true)
+  expiresAt       DateTime?
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([country])
+  @@index([state])
+  @@index([city])
+  @@index([isActive])
+  @@unique([country, state, city]) /// Most specific rule wins
+}
+
+/// Shipping Method — defines available shipping options (PHASE 6)
+model ShippingMethod {
+  id              String @id @default(cuid())
+  
+  /// Method definition
+  name            String /// Standard, Express, Overnight, etc.
+  description     String?
+  
+  /// Pricing
+  baseCostCents   Int    /// Base shipping cost in cents
+  perKgCostCents  Int @default(0) /// Additional cost per kg
+  perKmCostCents  Int @default(0) /// Additional cost per km (for distance-based)
+  
+  /// Constraints
+  minWeightGrams  Int @default(0)
+  maxWeightGrams  Int?
+  minDeliveryDays Int
+  maxDeliveryDays Int
+  
+  /// Coverage
+  allowedCountries String[] @default([]) /// ISO country codes; empty = all countries
+  
+  /// Status
+  isActive        Boolean @default(true)
+  expiresAt       DateTime?
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  /// Relations
+  orders          Order[] @relation("ShippingMethod")
+  
+  @@index([isActive])
+  @@index([name])
+}
+
+/// Inventory Reservation — holds stock for pending payments (PHASE 6)
+model InventoryReservation {
+  id              String @id @default(cuid())
+  
+  /// Product & quantity
+  productId       Int    /// Product being reserved
+  quantity        Int    /// Number of units reserved
+  
+  /// Linked order
+  orderId         String?
+  orderItemId     String? /// If linked to specific order item
+  orderItems      OrderItem[] /// Backlink from order items
+  
+  /// Status
+  status          String @default("RESERVED") /// RESERVED, CONFIRMED (paid), RELEASED, EXPIRED
+  
+  /// Expiry (auto-release after payment timeout)
+  expiresAt       DateTime /// When this reservation expires if payment not confirmed
+  
+  /// Release metadata
+  releasedAt      DateTime?
+  releaseReason   String? /// PAYMENT_SUCCESS, PAYMENT_FAILED, EXPIRED, MANUAL
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([orderId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+/// Shipping Address — snapshot of address for order fulfillment (PHASE 6)
+model ShippingAddress {
+  id              String @id @default(cuid())
+  
+  /// Address details
+  fullName        String
+  streetLine1     String
+  streetLine2     String?
+  city            String
+  stateProvince   String
+  postalCode      String
+  country         String /// ISO 3166-1 alpha-2
+  phoneNumber     String?
+  
+  /// Link to order
+  orderId         String @unique /// One address per order
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([orderId])
 }

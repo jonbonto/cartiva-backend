@@ -4,7 +4,6 @@ import { Queue } from 'bull';
 import { UI, setQueues } from 'bull-board';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { EMAIL_QUEUE, WEBHOOK_QUEUE, ANALYTICS_QUEUE, ORDER_QUEUE } from './constants';
 import { EmailQueueService } from './email-queue/email-queue.service';
 import { WebhookQueueService } from './webhook-queue/webhook-queue.service';
 import { AnalyticsQueueService } from './analytics-queue/analytics-queue.service';
@@ -34,7 +33,7 @@ import { OrderQueueService } from './order-queue/order-queue.service';
  * - Read-only by default (write operations require confirmation)
  */
 
-@Controller('api/admin/queues')
+@Controller('admin/queues')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class QueueMonitorController {
   private bullBoard: any;

@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { PrismaModule } from './prisma/prisma.module'
+import { Phase6Module } from './services/phase6.module'
+import { ShippingController } from './shipping/shipping.controller'
+import { TaxController } from './tax/tax.controller'
 import { QueueModule } from './queues/queue.module'
 import { ProductsModule } from './products/products.module'
 import { CartModule } from './cart/cart.module'
@@ -33,6 +36,7 @@ import { ConfigService } from '@nestjs/config'
       inject: [ConfigService],
     }),
     PrismaModule,
+    Phase6Module,
     ProductsModule,
     CartModule,
     AdminModule,
@@ -41,6 +45,7 @@ import { ConfigService } from '@nestjs/config'
     AnalyticsModule,
     QueueModule,
   ],
+  controllers: [ShippingController, TaxController],
   providers: [EnvironmentValidator],
 })
 export class AppModule {}

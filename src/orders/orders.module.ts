@@ -9,9 +9,10 @@ import { PaymentsModule } from '../payments/payments.module'
 import { EmailModule } from '../email/email.module'
 import { AdminOrdersController } from '../admin/admin-orders.controller'
 import { AdminOrdersService } from '../admin/admin-orders.service'
+import { Phase6Module } from '../services/phase6.module'
 
 @Module({
-  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule],
+  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, Phase6Module],
   providers: [OrdersService, OrderPaymentService, AdminOrdersService],
   controllers: [OrdersController, AdminOrdersController],
   exports: [OrdersService, OrderPaymentService],

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { OrdersService } from './orders.service'
+import { InventoryReservationService } from '../services/inventory/inventory-reservation.service'
 import { PaymentProvider, PaymentIntent, PaymentResult } from '../common/types/payment'
 import { PaymentProviderRegistry } from '../common/types/payment'
 import { StripePaymentProvider } from '../payments/stripe.provider'
@@ -16,13 +17,14 @@ import { MoneyValue } from '../common/types/money'
 import crypto from 'crypto'
 
 /**
- * PHASE 5: OrderPaymentService
+ * PHASE 6: OrderPaymentService (updated)
  * 
  * Responsibilities:
  * - Initiate payment for order
  * - Handle webhooks from payment providers
  * - Ensure idempotency
  * - Update order status based on payment events
+ * - Handle inventory reservations (NEW - Phase 6)
  * - Never modify order or apply discounts (Order is immutable)
  * 
  * Principle: Payment events drive order status transitions
@@ -35,6 +37,7 @@ export class OrderPaymentService {
   constructor(
     private prisma: PrismaService,
     private ordersService: OrdersService,
+    private inventoryReservationService: InventoryReservationService,
     private stripeProvider: StripePaymentProvider,
     private midtransProvider: MidtransPaymentProvider,
     private emailService: EmailService
@@ -239,10 +242,13 @@ export class OrderPaymentService {
 
         await this.ordersService.updateOrderStatus(payment.orderId, newOrderStatus)
 
-        // 7. If payment succeeded, deduct stock and send emails
+        // 7. If payment succeeded, deduct stock and handle inventory reservations
         if (paymentResult.status === 'paid') {
           await this.ordersService.deductStockForOrder(payment.orderId)
           this.logger.log(`Stock deducted for order: ${payment.orderId}`)
+
+          // Handle inventory reservations (Phase 6)
+          await this.handleInventoryConfirmation(payment.orderId)
 
           // Send payment success email (async, don't block)
           if (order?.user?.email) {
@@ -263,6 +269,9 @@ export class OrderPaymentService {
 
         // Send payment failure email if failed
         if (paymentResult.status === 'failed' && order?.user?.email) {
+          // Handle inventory reservations - release them (Phase 6)
+          await this.handleInventoryRelease(payment.orderId, 'PAYMENT_FAILED')
+
           this.emailService
             .sendPaymentFailure(
               order.user.email,
@@ -439,5 +448,107 @@ export class OrderPaymentService {
       .createHash('sha256')
       .update(`${orderId}:${providerName}`)
       .digest('hex')
+  }
+
+  /**
+   * Handle inventory reservation confirmation after successful payment (Phase 6)
+   * - Deduct reserved stock for each order item
+   * - Mark reservations as CONFIRMED
+   */
+  private async handleInventoryConfirmation(orderId: string): Promise<void> {
+    try {
+      const orderWithReservations = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: {
+            include: {
+              reservation: true,
+            },
+          },
+        },
+      })
+
+      if (!orderWithReservations) {
+        this.logger.warn(`Order not found for inventory confirmation: ${orderId}`)
+        return
+      }
+
+      // Process each item's reservation
+      for (const item of orderWithReservations.items) {
+        if (item.reservation) {
+          try {
+            await this.inventoryReservationService.deductReservedStock(item.reservation.id)
+            this.logger.log(`✅ Inventory deducted for reservation ${item.reservation.id}`)
+          } catch (error) {
+            this.logger.error(
+              `Failed to deduct inventory for reservation ${item.reservation.id}: ${error.message}`
+            )
+            // Don't fail the entire payment flow, but log the error
+          }
+        }
+      }
+
+      this.logger.log(`Inventory confirmations completed for order ${orderId}`)
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle inventory confirmation for order ${orderId}: ${error.message}`
+      )
+      // Don't throw - payment is already successful
+    }
+  }
+
+  /**
+   * Handle inventory reservation release on payment failure (Phase 6)
+   * - Release all reservations for order items
+   * - Restore reserved stock
+   */
+  private async handleInventoryRelease(
+    orderId: string,
+    reason: 'PAYMENT_FAILED' | 'EXPIRED' | 'MANUAL' = 'PAYMENT_FAILED'
+  ): Promise<void> {
+    try {
+      const orderWithReservations = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: {
+            include: {
+              reservation: true,
+            },
+          },
+        },
+      })
+
+      if (!orderWithReservations) {
+        this.logger.warn(`Order not found for inventory release: ${orderId}`)
+        return
+      }
+
+      // Release each item's reservation
+      for (const item of orderWithReservations.items) {
+        if (item.reservation) {
+          try {
+            await this.inventoryReservationService.releaseReservation(
+              item.reservation.id,
+              reason
+            )
+            this.logger.log(
+              `✅ Inventory released for reservation ${item.reservation.id} (${reason})`
+            )
+          } catch (error) {
+            this.logger.error(
+              `Failed to release reservation ${item.reservation.id}: ${error.message}`
+            )
+            // Don't fail - just log
+          }
+        }
+      }
+
+      this.logger.log(`Inventory releases completed for order ${orderId}`)
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle inventory release for order ${orderId}: ${error.message}`
+      )
+      // Don't throw
+    }
   }
 }

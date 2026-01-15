@@ -2,17 +2,23 @@ import { Injectable, BadRequestException, InternalServerErrorException } from '@
 import { PrismaService } from '../prisma/prisma.service'
 import { CartService } from '../cart/cart.service'
 import { ProductsService } from '../products/products.service'
+import { TaxService } from '../services/tax/tax.service'
+import { ShippingService } from '../services/shipping/shipping.service'
+import { InventoryReservationService } from '../services/inventory/inventory-reservation.service'
 import { CreateOrderDto } from './dto/order.dto'
 import { Order as OrderType, OrderValidator } from '../common/types/order'
 import { DiscountEngine, DiscountRule } from '../common/types/discount'
 import { MoneyValue } from '../common/types/money'
 
 /**
- * PHASE 5: OrderService
+ * PHASE 6: OrderService (updated)
  * 
  * Responsibilities:
  * - Create immutable order from cart
  * - Apply discounts deterministically
+ * - Calculate tax and shipping (NEW - Phase 6)
+ * - Create inventory reservations (NEW - Phase 6)
+ * - Save shipping address (NEW - Phase 6)
  * - Validate order before payment
  * - Lock cart after checkout
  */
@@ -21,8 +27,12 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private cartService: CartService,
-    private productsService: ProductsService
+    private productsService: ProductsService,
+    private taxService: TaxService,
+    private shippingService: ShippingService,
+    private inventoryReservationService: InventoryReservationService,
   ) {}
+
 
   /**
    * Create an order from cart
@@ -157,9 +167,40 @@ export class OrdersService {
       )
     }
 
-    // 6. Calculate final totals
-    const taxAmount = new MoneyValue(0, createOrderDto.currency as any) // Phase 5+: Tax logic
-    const shippingCost = new MoneyValue(0, createOrderDto.currency as any) // Phase 5+: Shipping logic
+    // 6. Calculate tax and shipping (Phase 6)
+    let taxAmountCents = 0
+    let shippingCostCents = 0
+    let shippingMethodId: string | null = null
+
+    // Calculate tax if shipping address provided
+    if (createOrderDto.shippingAddress) {
+      taxAmountCents = await this.taxService.calculateTax(
+        {
+          country: createOrderDto.shippingAddress.country,
+          state: createOrderDto.shippingAddress.stateProvince,
+          city: createOrderDto.shippingAddress.city,
+        },
+        subtotalCents
+      )
+    }
+
+    // Calculate shipping if shipping method provided
+    if (createOrderDto.shippingMethodId && createOrderDto.shippingAddress) {
+      shippingCostCents = await this.shippingService.calculateShipping(
+        {
+          country: createOrderDto.shippingAddress.country,
+          state: createOrderDto.shippingAddress.stateProvince,
+          city: createOrderDto.shippingAddress.city,
+          postalCode: createOrderDto.shippingAddress.postalCode,
+        },
+        createOrderDto.shippingMethodId,
+        createOrderDto.estimatedWeight || 0
+      )
+      shippingMethodId = createOrderDto.shippingMethodId
+    }
+
+    const taxAmount = new MoneyValue(taxAmountCents, createOrderDto.currency as any)
+    const shippingCost = new MoneyValue(shippingCostCents, createOrderDto.currency as any)
 
     const totalBeforePayment = subtotal
       .subtract(discountTotal)
@@ -185,8 +226,13 @@ export class OrdersService {
     // 8. Validate order integrity
     OrderValidator.validate(order)
 
-    // 9. Persist order
-    const persistedOrder = await this.persistOrder(order)
+    // 9. Persist order with shipping address and create inventory reservations
+    const persistedOrder = await this.persistOrder(
+      order,
+      shippingMethodId,
+      createOrderDto.shippingAddress,
+      cartId
+    )
 
     // 10. Mark cart as checked out (can't be reused)
     await this.cartService.markCartAsCheckedOut(cartId)
@@ -196,8 +242,14 @@ export class OrdersService {
 
   /**
    * Persist order to database
+   * Also saves shipping address and creates inventory reservations
    */
-  private async persistOrder(order: OrderType) {
+  private async persistOrder(
+    order: OrderType,
+    shippingMethodId?: string | null,
+    shippingAddress?: any,
+    cartId?: number
+  ) {
     try {
       const dbOrder = await this.prisma.order.create({
         data: {
@@ -210,6 +262,7 @@ export class OrdersService {
           shippingCostCents: order.shippingCost.amountCents,
           totalBeforePaymentCents: order.totalBeforePayment.amountCents,
           finalTotalAmountCents: order.finalTotal.amountCents,
+          shippingMethodId: shippingMethodId || null,
           appliedDiscounts: order.appliedDiscounts as any,
           status: 'PENDING',
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
@@ -227,6 +280,44 @@ export class OrdersService {
         },
         include: { items: true },
       })
+
+      // Save shipping address if provided (Phase 6)
+      if (shippingAddress) {
+        await this.prisma.shippingAddress.create({
+          data: {
+            orderId: dbOrder.id,
+            fullName: shippingAddress.fullName,
+            streetLine1: shippingAddress.streetLine1,
+            streetLine2: shippingAddress.streetLine2,
+            city: shippingAddress.city,
+            stateProvince: shippingAddress.stateProvince,
+            postalCode: shippingAddress.postalCode,
+            country: shippingAddress.country,
+            phoneNumber: shippingAddress.phoneNumber,
+          },
+        })
+      }
+
+      // Create inventory reservations for each order item (Phase 6)
+      for (const item of dbOrder.items) {
+        try {
+          const reservation = await this.inventoryReservationService.createReservation(
+            item.productId,
+            item.quantity,
+            dbOrder.id,
+            item.id
+          )
+
+          // Link reservation to order item
+          await this.prisma.orderItem.update({
+            where: { id: item.id },
+            data: { reservationId: reservation.id },
+          })
+        } catch (error) {
+          // Log reservation error but don't fail the entire order
+          console.error(`Failed to create reservation for item ${item.id}:`, error.message)
+        }
+      }
 
       return dbOrder
     } catch (error) {
