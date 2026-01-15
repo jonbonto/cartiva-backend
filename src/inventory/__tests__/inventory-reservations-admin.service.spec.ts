@@ -1,5 +1,5 @@
 import { InventoryReservationsAdminService } from '../inventory-reservations-admin.service'
-import { PrismaService } from '../../../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 
 describe('InventoryReservationsAdminService', () => {
   let service: InventoryReservationsAdminService

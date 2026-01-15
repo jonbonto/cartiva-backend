@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common'
 import { AdminController } from './admin.controller'
-import { WebhookAdminController } from './webhook-admin.controller'
-// Tax and Shipping admin controllers moved to their domain modules
-import { ReservationsController } from './reservations.controller'
-// admin services moved into domain modules
-import { InventoryReservationsAdminService } from './services/inventory-reservations-admin.service'
+// Moved domain-specific admin controllers into their modules
 import { ProductsModule } from '../products/products.module'
 import { AuthModule } from '../auth/auth.module'
 import { PaymentsModule } from '../payments/payments.module'
 import { PrismaModule } from '../prisma/prisma.module'
 import { FulfillmentModule } from '../fulfillment/fulfillment.module'
+import { InventoryModule } from '../inventory/inventory.module'
 
 /**
  * PHASE 1 REFACTORING: Circular Dependency Fix
@@ -27,8 +24,8 @@ import { FulfillmentModule } from '../fulfillment/fulfillment.module'
  * This improves testability, reusability, and separation of concerns.
  */
 @Module({
-  imports: [ProductsModule, AuthModule, PaymentsModule, PrismaModule, FulfillmentModule],
-  controllers: [AdminController, WebhookAdminController, ReservationsController],
-  providers: [InventoryReservationsAdminService],
+  imports: [ProductsModule, AuthModule, PaymentsModule, PrismaModule, FulfillmentModule, InventoryModule],
+  controllers: [AdminController],
+  providers: [],
 })
 export class AdminModule {}

@@ -1,26 +1,16 @@
 import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common'
-import { PrismaService } from '../../prisma/prisma.service'
+import { PrismaService } from '../prisma/prisma.service'
 
 export interface ReleaseReservationDto {
   reason: string
 }
 
-/**
- * PHASE 2: InventoryReservationsAdminService
- * 
- * Service layer for inventory reservation administration.
- * Encapsulates all reservation business logic and data access.
- * Controllers delegate to this service instead of accessing Prisma directly.
- */
 @Injectable()
 export class InventoryReservationsAdminService {
   private readonly logger = new Logger(InventoryReservationsAdminService.name)
 
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * List all inventory reservations with optional filtering and pagination
-   */
   async listReservations(
     filters?: { productId?: string },
     sort?: { by: string; order: 'asc' | 'desc' },
@@ -47,7 +37,6 @@ export class InventoryReservationsAdminService {
         this.prisma.inventoryReservation.count({ where }),
       ])
 
-      // Enrich with product names
       const productIds = Array.from(new Set(reservations.map((r) => r.productId).filter(Boolean)))
       const products = productIds.length
         ? await this.prisma.product.findMany({
@@ -78,9 +67,6 @@ export class InventoryReservationsAdminService {
     }
   }
 
-  /**
-   * Release an inventory reservation
-   */
   async releaseReservation(id: string, reason?: string) {
     try {
       const reservation = await this.prisma.inventoryReservation.findUnique({ where: { id } })
@@ -113,9 +99,6 @@ export class InventoryReservationsAdminService {
     }
   }
 
-  /**
-   * Validate release reason
-   */
   validateReleaseReason(reason: string) {
     if (!reason || reason.trim().length === 0) {
       throw new BadRequestException('Release reason required')

@@ -10,9 +10,11 @@ import { StripePaymentProvider } from './stripe.provider'
 import { MidtransPaymentProvider } from './midtrans.provider'
 import { WebhookLoggerService } from './webhook-logger.service'
 import { PrismaModule } from '../prisma/prisma.module'
+import { WebhookAdminController } from './admin/webhook-admin.controller'
 
 @Module({
   imports: [PrismaModule],
+  controllers: [WebhookAdminController],
   providers: [
     StripePaymentProvider,
     MidtransPaymentProvider,

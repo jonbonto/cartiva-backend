@@ -1,5 +1,5 @@
-import { ShippingMethodsAdminService } from '../shipping-methods-admin.service'
-import { PrismaService } from '../../../prisma/prisma.service'
+import { ShippingMethodsAdminService } from '../admin/services/shipping-methods-admin.service'
+import { PrismaService } from '../../prisma/prisma.service'
 
 describe('ShippingMethodsAdminService', () => {
   let service: ShippingMethodsAdminService

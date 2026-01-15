@@ -1,5 +1,5 @@
-import { TaxRulesAdminService } from '../tax-rules-admin.service'
-import { PrismaService } from '../../../prisma/prisma.service'
+import { TaxRulesAdminService } from '../admin/services/tax-rules-admin.service'
+import { PrismaService } from '../../prisma/prisma.service'
 
 describe('TaxRulesAdminService', () => {
   let service: TaxRulesAdminService

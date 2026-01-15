@@ -9,25 +9,10 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common'
-import { JwtAuthGuard } from '../auth/guards/jwt.guard'
-import { AdminGuard } from '../auth/guards/admin.guard'
-import { WebhookLoggerService } from '../payments/webhook-logger.service'
+import { JwtAuthGuard } from '../../auth/guards/jwt.guard'
+import { AdminGuard } from '../../auth/guards/admin.guard'
+import { WebhookLoggerService } from '../webhook-logger.service'
 
-/**
- * PHASE 6: Webhook Admin Controller
- *
- * Endpoints:
- * - GET /admin/webhooks - List failed webhooks (paginated)
- * - GET /admin/webhooks/:id - Get webhook details
- * - POST /admin/webhooks/:id/replay - Manually replay webhook
- * - GET /admin/webhooks/stats - Get webhook statistics
- *
- * Security:
- * - Admin-only access (AdminGuard)
- * - JWT authentication required
- * - Audit trail via logging
- * - Request validation
- */
 @Controller('api/admin/webhooks')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class WebhookAdminController {
@@ -35,12 +20,6 @@ export class WebhookAdminController {
 
   constructor(private webhookLoggerService: WebhookLoggerService) {}
 
-  /**
-   * List failed webhooks with pagination
-   * Query params:
-   * - page (default: 1)
-   * - pageSize (default: 20, max: 100)
-   */
   @Get('failed')
   async listFailedWebhooks(
     @Query('page') page: string = '1',
@@ -52,11 +31,11 @@ export class WebhookAdminController {
 
       const result = await this.webhookLoggerService.listFailedWebhooks(
         pageNum,
-        pageSizeNum
+        pageSizeNum,
       )
 
       this.logger.log(
-        `Admin listed failed webhooks: page=${pageNum}, pageSize=${pageSizeNum}`
+        `Admin listed failed webhooks: page=${pageNum}, pageSize=${pageSizeNum}`,
       )
 
       return result
@@ -66,9 +45,6 @@ export class WebhookAdminController {
     }
   }
 
-  /**
-   * Get webhook details by ID
-   */
   @Get(':webhookId')
   async getWebhookDetails(@Param('webhookId') webhookId: string) {
     try {
@@ -89,27 +65,19 @@ export class WebhookAdminController {
     }
   }
 
-  /**
-   * Manually replay a webhook
-   * POST /admin/webhooks/:webhookId/replay
-   */
   @Post(':webhookId/replay')
   async replayWebhook(@Param('webhookId') webhookId: string) {
     try {
-      // Fetch webhook to verify it exists
       const webhook = await this.webhookLoggerService.getWebhookLog(webhookId)
 
       if (!webhook) {
         throw new BadRequestException(`Webhook not found: ${webhookId}`)
       }
 
-      // Prepare for replay
-      const prepared = await this.webhookLoggerService.prepareForReplay(
-        webhookId
-      )
+      const prepared = await this.webhookLoggerService.prepareForReplay(webhookId)
 
       this.logger.log(
-        `Admin replayed webhook: ${webhookId} (provider: ${webhook.provider}, event: ${webhook.eventType})`
+        `Admin replayed webhook: ${webhookId} (provider: ${webhook.provider}, event: ${webhook.eventType})`,
       )
 
       return {
@@ -125,10 +93,6 @@ export class WebhookAdminController {
     }
   }
 
-  /**
-   * Get webhook statistics
-   * GET /admin/webhooks/stats
-   */
   @Get()
   async getWebhookStats() {
     try {
@@ -139,9 +103,7 @@ export class WebhookAdminController {
       return stats
     } catch (error) {
       this.logger.error(`Failed to get webhook stats: ${error.message}`)
-      throw new InternalServerErrorException(
-        'Failed to fetch webhook statistics'
-      )
+      throw new InternalServerErrorException('Failed to fetch webhook statistics')
     }
   }
 }

@@ -9,12 +9,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common'
-import { JwtAuthGuard } from '../auth/guards/jwt.guard'
-import { AdminGuard } from '../auth/guards/admin.guard'
-import { PrismaService } from '../prisma/prisma.service'
-import { FeatureFlagsService, FeatureFlag } from '../feature-flags/feature-flags.service'
-import { InventoryReservationsAdminService } from './services/inventory-reservations-admin.service'
-import { GetRequestInfo, RequestInfo } from '../common/decorators/request-info.decorator'
+import { JwtAuthGuard } from '../../auth/guards/jwt.guard'
+import { AdminGuard } from '../../auth/guards/admin.guard'
+import { PrismaService } from '../../prisma/prisma.service'
+import { FeatureFlagsService, FeatureFlag } from '../../feature-flags/feature-flags.service'
+import { InventoryReservationsAdminService } from '../inventory-reservations-admin.service'
+import { GetRequestInfo, RequestInfo } from '../../common/decorators/request-info.decorator'
 
 export interface ReleaseReservationDto {
   reason: string
@@ -63,7 +63,6 @@ export class ReservationsController {
       this.prisma.inventoryReservation.count({ where }),
     ])
 
-    // Enrich with product names
     const productIds = Array.from(new Set(reservations.map((r) => r.productId).filter(Boolean))) as number[]
     const products = productIds.length
       ? await this.prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } })
@@ -107,7 +106,6 @@ export class ReservationsController {
       this.prisma.inventoryReservation.count({ where: { status: 'EXPIRED' } }),
     ])
 
-    // Calculate expiringIn24h
     const in24h = new Date(Date.now() + 24 * 60 * 60 * 1000)
     const expiringIn24h = await this.prisma.inventoryReservation.count({
       where: {
@@ -118,7 +116,6 @@ export class ReservationsController {
       },
     })
 
-    // Calculate total reserved value
     const reservedItems = await this.prisma.inventoryReservation.findMany({
       where: { status: 'RESERVED' },
       select: { productId: true, quantity: true },
