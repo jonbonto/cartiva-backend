@@ -1,13 +1,10 @@
 import { Processor, Process, OnQueueError, OnQueueFailed } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject } from '@nestjs/common';
 import { Job } from 'bull';
-import { ORDER_QUEUE } from './order-queue.module';
-import {
-  OrderStatusChangedJob,
-  FulfillmentUpdatedJob,
-  OrderCancelledJob,
-} from './order-queue.service';
-import { EmailQueueService } from '../email-queue/email-queue.service';
+import { ORDER_QUEUE } from '../constants';
+import { OrderStatusChangedJob, FulfillmentUpdatedJob, OrderCancelledJob } from '../interfaces/order-event-publisher.interface';
+import { EMAIL_PUBLISHER } from '../email-queue/email-queue.module';
+import { EmailPublisher } from '../interfaces/email-publisher.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -30,7 +27,8 @@ export class OrderQueueProcessor {
   private readonly logger = new Logger(OrderQueueProcessor.name);
 
   constructor(
-    private readonly emailQueueService: EmailQueueService,
+    @Inject(EMAIL_PUBLISHER)
+    private readonly emailPublisher: EmailPublisher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -54,7 +52,7 @@ export class OrderQueueProcessor {
 
         if (order && order.user) {
           // Send payment success email
-          await this.emailQueueService.sendPaymentSuccess({
+          await this.emailPublisher.sendPaymentSuccess({
             to: order.user.email,
             orderId: order.id,
             amountCents: order.finalTotalAmountCents,
@@ -74,7 +72,7 @@ export class OrderQueueProcessor {
 
         if (order && order.user) {
           // Send payment failed email
-          await this.emailQueueService.sendPaymentFailed({
+          await this.emailPublisher.sendPaymentFailed({
             to: order.user.email,
             orderId: order.id,
             amountCents: order.finalTotalAmountCents,
@@ -126,7 +124,7 @@ export class OrderQueueProcessor {
         (fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') &&
         order.user
       ) {
-        await this.emailQueueService.sendShipmentUpdate({
+        await this.emailPublisher.sendShipmentUpdate({
           to: order.user.email,
           orderId: order.id,
           status: fulfillmentStatus,

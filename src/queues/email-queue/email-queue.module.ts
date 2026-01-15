@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bull';
 import { EmailQueueService } from './email-queue.service';
 import { EmailQueueProcessor } from './email-queue.processor';
 import { EmailModule } from '../../email/email.module';
+import { EMAIL_QUEUE } from '../constants';
 
 /**
  * Email Queue Module — Async email sending via Bull queue
@@ -28,7 +29,7 @@ import { EmailModule } from '../../email/email.module';
  * - Failed jobs logged for manual investigation
  */
 
-export const EMAIL_QUEUE = 'email-queue';
+export const EMAIL_PUBLISHER = 'EMAIL_PUBLISHER';
 
 @Module({
   imports: [
@@ -37,7 +38,11 @@ export const EMAIL_QUEUE = 'email-queue';
     }),
     EmailModule,
   ],
-  providers: [EmailQueueService, EmailQueueProcessor],
-  exports: [EmailQueueService],
+  providers: [
+    EmailQueueService,
+    EmailQueueProcessor,
+    { provide: EMAIL_PUBLISHER, useExisting: EmailQueueService },
+  ],
+  exports: [EmailQueueService, EMAIL_PUBLISHER],
 })
 export class EmailQueueModule {}

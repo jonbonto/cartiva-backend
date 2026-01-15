@@ -1,7 +1,7 @@
 import { Processor, Process, OnQueueError, OnQueueFailed } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
-import { WEBHOOK_QUEUE } from './webhook-queue.module';
+import { WEBHOOK_QUEUE } from '../constants';
 import { WebhookReplayJob } from './webhook-queue.service';
 import { WebhookLoggerService } from '../../payments/webhook-logger.service';
 

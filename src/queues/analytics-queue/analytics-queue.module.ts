@@ -1,9 +1,5 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
-import { AnalyticsQueueService } from './analytics-queue.service';
-import { AnalyticsQueueProcessor } from './analytics-queue.processor';
-import { PrismaModule } from '../../prisma/prisma.module';
-
 /**
  * Analytics Queue Module — Background data aggregation
  * 
@@ -22,7 +18,10 @@ import { PrismaModule } from '../../prisma/prisma.module';
  * - Manual triggers from admin dashboard
  */
 
-export const ANALYTICS_QUEUE = 'analytics-queue';
+import { AnalyticsQueueService } from './analytics-queue.service';
+import { AnalyticsQueueProcessor } from './analytics-queue.processor';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { ANALYTICS_QUEUE } from '../constants';
 
 @Module({
   imports: [

@@ -4,6 +4,7 @@ import { OrderQueueService } from './order-queue.service';
 import { OrderQueueProcessor } from './order-queue.processor';
 import { EmailQueueModule } from '../email-queue/email-queue.module';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { ORDER_QUEUE } from '../constants';
 
 /**
  * Order Queue Module — Order lifecycle event processing
@@ -22,7 +23,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
  * Admin updates order → Enqueue event → Processor handles side effects
  */
 
-export const ORDER_QUEUE = 'order-queue';
+export const ORDER_EVENT_PUBLISHER = 'ORDER_EVENT_PUBLISHER';
 
 @Module({
   imports: [
@@ -32,7 +33,11 @@ export const ORDER_QUEUE = 'order-queue';
     EmailQueueModule,
     PrismaModule,
   ],
-  providers: [OrderQueueService, OrderQueueProcessor],
-  exports: [OrderQueueService],
+  providers: [
+    OrderQueueService,
+    OrderQueueProcessor,
+    { provide: ORDER_EVENT_PUBLISHER, useExisting: OrderQueueService },
+  ],
+  exports: [OrderQueueService, ORDER_EVENT_PUBLISHER],
 })
 export class OrderQueueModule {}

@@ -8,9 +8,10 @@ import { AuthModule } from '../auth/auth.module'
 import { PaymentsModule } from '../payments/payments.module'
 import { PrismaModule } from '../prisma/prisma.module'
 import { OrdersModule } from '../orders/orders.module'
+import { FulfillmentModule } from '../fulfillment/fulfillment.module'
 
 @Module({
-  imports: [ProductsModule, AuthModule, PaymentsModule, PrismaModule, OrdersModule],
+  imports: [ProductsModule, AuthModule, PaymentsModule, PrismaModule, OrdersModule, FulfillmentModule],
   controllers: [AdminController, WebhookAdminController, AdminOrdersController],
   providers: [AdminOrdersService],
 })

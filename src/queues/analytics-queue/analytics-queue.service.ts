@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { ANALYTICS_QUEUE } from './analytics-queue.module';
+import { ANALYTICS_QUEUE } from '../constants';
 
 /**
  * Analytics Queue Service — Schedules analytics aggregation jobs
@@ -129,5 +129,12 @@ export class AnalyticsQueueService {
       delayed,
       total: waiting + active + completed + failed + delayed,
     };
+  }
+
+  /**
+   * Expose underlying Bull `Queue` instance for integrations (e.g. Bull Board)
+   */
+  getQueue(): Queue {
+    return this.analyticsQueue;
   }
 }

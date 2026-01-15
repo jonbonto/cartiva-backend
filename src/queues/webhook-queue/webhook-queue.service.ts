@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { WEBHOOK_QUEUE } from './webhook-queue.module';
+import { WEBHOOK_QUEUE } from '../constants';
 
 /**
  * Webhook Queue Service — Enqueues webhook replay jobs
@@ -112,5 +112,12 @@ export class WebhookQueueService {
       delayed,
       total: waiting + active + completed + failed + delayed,
     };
+  }
+
+  /**
+   * Expose underlying Bull `Queue` instance for integrations (e.g. Bull Board)
+   */
+  getQueue(): Queue {
+    return this.webhookQueue;
   }
 }

@@ -9,7 +9,7 @@ interface AnalyticsParams {
   granularity?: 'daily' | 'hourly';
 }
 
-@Controller('admin/analytics')
+@Controller('api/admin/analytics')
 export class AnalyticsController {
   constructor(private prisma: PrismaService) {}
 

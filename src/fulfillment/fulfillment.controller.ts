@@ -17,8 +17,8 @@ import { FulfillmentService, UpdateFulfillmentDto } from './fulfillment.service'
  * Fulfillment Controller — Admin endpoints for order fulfillment
  * 
  * Endpoints:
- * - PATCH /admin/orders/:id/fulfillment - Update fulfillment status/tracking
- * - GET /admin/orders/:id/fulfillment/timeline - Get fulfillment history
+ * - PATCH /api/admin/orders/:id/fulfillment - Update fulfillment status/tracking
+ * - GET /api/admin/orders/:id/fulfillment/timeline - Get fulfillment history
  * 
  * Access Control:
  * - All endpoints require JWT authentication + admin role
@@ -26,11 +26,11 @@ import { FulfillmentService, UpdateFulfillmentDto } from './fulfillment.service'
  * Usage Examples:
  * ```
  * // Mark order as processing
- * PATCH /admin/orders/order_123/fulfillment
+ * PATCH /api/admin/orders/order_123/fulfillment
  * { "fulfillmentStatus": "processing" }
  * 
  * // Mark order as shipped
- * PATCH /admin/orders/order_123/fulfillment
+ * PATCH /api/admin/orders/order_123/fulfillment
  * {
  *   "fulfillmentStatus": "shipped",
  *   "trackingNumber": "1Z999AA10123456784",
@@ -38,12 +38,12 @@ import { FulfillmentService, UpdateFulfillmentDto } from './fulfillment.service'
  * }
  * 
  * // Mark as delivered
- * PATCH /admin/orders/order_123/fulfillment
+ * PATCH /api/admin/orders/order_123/fulfillment
  * { "fulfillmentStatus": "delivered" }
  * ```
  */
 
-@Controller('admin/orders')
+@Controller('api/admin/orders')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class FulfillmentController {
   constructor(private readonly fulfillmentService: FulfillmentService) {}

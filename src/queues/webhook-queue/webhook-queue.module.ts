@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bull';
 import { WebhookQueueService } from './webhook-queue.service';
 import { WebhookQueueProcessor } from './webhook-queue.processor';
 import { PaymentsModule } from '../../payments/payments.module';
+import { WEBHOOK_QUEUE } from '../constants';
 
 /**
  * Webhook Queue Module — Async webhook replay & retry
@@ -21,7 +22,7 @@ import { PaymentsModule } from '../../payments/payments.module';
  * - Prevents duplicate processing of same webhook
  */
 
-export const WEBHOOK_QUEUE = 'webhook-queue';
+
 
 @Module({
   imports: [

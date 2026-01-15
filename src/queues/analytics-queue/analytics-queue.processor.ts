@@ -1,7 +1,7 @@
 import { Processor, Process, OnQueueError, OnQueueFailed } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
-import { ANALYTICS_QUEUE } from './analytics-queue.module';
+import { ANALYTICS_QUEUE } from '../constants';
 import { DailyAggregationJob, HourlyAggregationJob } from './analytics-queue.service';
 import { PrismaService } from '../../prisma/prisma.service';
 

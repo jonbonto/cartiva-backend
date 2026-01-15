@@ -28,7 +28,7 @@ import { WebhookLoggerService } from '../payments/webhook-logger.service'
  * - Audit trail via logging
  * - Request validation
  */
-@Controller('admin/webhooks')
+@Controller('api/admin/webhooks')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class WebhookAdminController {
   private readonly logger = new Logger(WebhookAdminController.name)

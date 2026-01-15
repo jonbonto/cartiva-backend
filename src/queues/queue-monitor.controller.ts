@@ -1,15 +1,14 @@
-import { Controller, Get, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Get, All, UseGuards, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { createBullBoard } from 'bull-board';
-import { BullAdapter } from 'bull-board';
+import { UI, setQueues } from 'bull-board';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { EMAIL_QUEUE } from '../queues/email-queue/email-queue.module';
-import { WEBHOOK_QUEUE } from '../queues/webhook-queue/webhook-queue.module';
-import { ANALYTICS_QUEUE } from '../queues/analytics-queue/analytics-queue.module';
-import { ORDER_QUEUE } from '../queues/order-queue/order-queue.module';
+import { EMAIL_QUEUE, WEBHOOK_QUEUE, ANALYTICS_QUEUE, ORDER_QUEUE } from './constants';
+import { EmailQueueService } from './email-queue/email-queue.service';
+import { WebhookQueueService } from './webhook-queue/webhook-queue.service';
+import { AnalyticsQueueService } from './analytics-queue/analytics-queue.service';
+import { OrderQueueService } from './order-queue/order-queue.service';
 
 /**
  * Queue Monitor Controller — Bull Board admin interface
@@ -35,24 +34,25 @@ import { ORDER_QUEUE } from '../queues/order-queue/order-queue.module';
  * - Read-only by default (write operations require confirmation)
  */
 
-@Controller('admin/queues')
+@Controller('api/admin/queues')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class QueueMonitorController {
   private bullBoard: any;
 
   constructor(
-    @InjectQueue(EMAIL_QUEUE) private emailQueue: Queue,
-    @InjectQueue(WEBHOOK_QUEUE) private webhookQueue: Queue,
-    @InjectQueue(ANALYTICS_QUEUE) private analyticsQueue: Queue,
-    @InjectQueue(ORDER_QUEUE) private orderQueue: Queue,
+    private readonly emailQueueService: EmailQueueService,
+    private readonly webhookQueueService: WebhookQueueService,
+    private readonly analyticsQueueService: AnalyticsQueueService,
+    private readonly orderQueueService: OrderQueueService,
   ) {
-    // Initialize Bull Board with all queues
-    this.bullBoard = createBullBoard([
-      new BullAdapter(this.emailQueue),
-      new BullAdapter(this.webhookQueue),
-      new BullAdapter(this.analyticsQueue),
-      new BullAdapter(this.orderQueue),
+    // Initialize Bull Board (older bull-board API): register queues and use exported UI app
+    setQueues([
+      this.emailQueueService.getQueue(),
+      this.webhookQueueService.getQueue(),
+      this.analyticsQueueService.getQueue(),
+      this.orderQueueService.getQueue(),
     ]);
+    this.bullBoard = UI;
   }
 
   /**
@@ -61,9 +61,8 @@ export class QueueMonitorController {
    */
   @Get()
   async viewQueues(@Req() req: Request, @Res() res: Response) {
-    // Bull Board router handles the request
-    const { router } = this.bullBoard;
-    router(req, res);
+    // Bull Board app handles the request
+    this.bullBoard(req, res);
   }
 
   /**
@@ -73,10 +72,10 @@ export class QueueMonitorController {
   @Get('stats')
   async getQueueStats() {
     const [emailStats, webhookStats, analyticsStats, orderStats] = await Promise.all([
-      this.getStats(this.emailQueue),
-      this.getStats(this.webhookQueue),
-      this.getStats(this.analyticsQueue),
-      this.getStats(this.orderQueue),
+      this.getStats(this.emailQueueService.getQueue()),
+      this.getStats(this.webhookQueueService.getQueue()),
+      this.getStats(this.analyticsQueueService.getQueue()),
+      this.getStats(this.orderQueueService.getQueue()),
     ]);
 
     return {
@@ -93,6 +92,15 @@ export class QueueMonitorController {
         orderStats.total,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Catch-all handler for Bull Board static assets and sub-routes
+   * Ensures requests like /api/admin/queues/static/* are handled by the UI
+   */
+  @All('*')
+  async handleAll(@Req() req: Request, @Res() res: Response) {
+    this.bullBoard(req, res);
   }
 
   /**

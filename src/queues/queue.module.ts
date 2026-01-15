@@ -36,35 +36,7 @@ import { QueueMonitorController } from './queue-monitor.controller';
 
 @Module({
   imports: [
-    // Configure Bull with Redis connection
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-          db: configService.get('REDIS_DB', 0),
-          maxRetriesPerRequest: 3,
-          retryStrategy: (times: number) => {
-            if (times > 3) {
-              return null; // Stop retrying after 3 attempts
-            }
-            return Math.min(times * 1000, 3000); // Exponential backoff (1s, 2s, 3s)
-          },
-        },
-        defaultJobOptions: {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000, // 2 seconds initial delay
-          },
-          removeOnComplete: 100, // Keep last 100 completed jobs
-          removeOnFail: 500, // Keep last 500 failed jobs for debugging
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // Global Bull configuration is provided at AppModule level
 
     // Import domain-specific queue modules
     EmailQueueModule,

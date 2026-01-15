@@ -1,57 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { ORDER_QUEUE } from './order-queue.module';
+import { ORDER_QUEUE } from '../constants';
+import {
+  OrderEventPublisher,
+  OrderStatusChangedJob,
+  FulfillmentUpdatedJob,
+  OrderCancelledJob,
+} from '../interfaces/order-event-publisher.interface';
 
 /**
  * Order Queue Service — Enqueues order lifecycle events
- * 
- * Usage:
- * ```typescript
- * // Order status changed
- * await this.orderQueueService.orderStatusChanged({
- *   orderId: 'order_123',
- *   oldStatus: 'PENDING',
- *   newStatus: 'PAID',
- *   userId: 42
- * });
- * 
- * // Fulfillment updated
- * await this.orderQueueService.fulfillmentUpdated({
- *   orderId: 'order_123',
- *   fulfillmentStatus: 'shipped',
- *   trackingNumber: 'ABC123',
- *   shippingProvider: 'FedEx'
- * });
- * ```
+ *
+ * Implements the `OrderEventPublisher` port so other modules can depend on the
+ * interface instead of the concrete queue implementation. This helps invert
+ * dependencies and prevents direct coupling.
  */
 
-export interface OrderStatusChangedJob {
-  orderId: string;
-  oldStatus: string;
-  newStatus: string;
-  userId?: number;
-  userEmail?: string;
-}
-
-export interface FulfillmentUpdatedJob {
-  orderId: string;
-  fulfillmentStatus: string; // pending, processing, shipped, delivered, cancelled
-  trackingNumber?: string;
-  shippingProvider?: string;
-  userId?: number;
-  userEmail?: string;
-}
-
-export interface OrderCancelledJob {
-  orderId: string;
-  reason?: string;
-  userId?: number;
-  userEmail?: string;
-}
-
 @Injectable()
-export class OrderQueueService {
+export class OrderQueueService implements OrderEventPublisher {
   private readonly logger = new Logger(OrderQueueService.name);
 
   constructor(
@@ -59,10 +26,6 @@ export class OrderQueueService {
     private readonly orderQueue: Queue,
   ) {}
 
-  /**
-   * Enqueue order status change event
-   * Triggers side effects like emails, analytics updates
-   */
   async orderStatusChanged(data: OrderStatusChangedJob): Promise<void> {
     try {
       await this.orderQueue.add(
@@ -87,10 +50,6 @@ export class OrderQueueService {
     }
   }
 
-  /**
-   * Enqueue fulfillment update event
-   * Triggers customer notification emails
-   */
   async fulfillmentUpdated(data: FulfillmentUpdatedJob): Promise<void> {
     try {
       await this.orderQueue.add(
@@ -114,10 +73,6 @@ export class OrderQueueService {
     }
   }
 
-  /**
-   * Enqueue order cancellation event
-   * Handles refunds, stock restoration, customer notifications
-   */
   async orderCancelled(data: OrderCancelledJob): Promise<void> {
     try {
       await this.orderQueue.add(
@@ -139,9 +94,6 @@ export class OrderQueueService {
     }
   }
 
-  /**
-   * Get queue statistics
-   */
   async getQueueStats() {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       this.orderQueue.getWaitingCount(),
@@ -159,5 +111,12 @@ export class OrderQueueService {
       delayed,
       total: waiting + active + completed + failed + delayed,
     };
+  }
+
+  /**
+   * Expose underlying Bull `Queue` instance for integrations (e.g. Bull Board)
+   */
+  getQueue(): Queue {
+    return this.orderQueue;
   }
 }

@@ -1,7 +1,7 @@
 import { Processor, Process, OnQueueError, OnQueueFailed } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
-import { EMAIL_QUEUE } from './email-queue.module';
+import { EMAIL_QUEUE } from '../constants';
 import { EmailService } from '../../email/email.service';
 import {
   OrderConfirmationEmailJob,

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { EMAIL_QUEUE } from './email-queue.module';
+import { EMAIL_QUEUE } from '../constants';
 
 /**
  * Email Queue Service — Enqueues email jobs for async processing
@@ -221,5 +221,12 @@ export class EmailQueueService {
       delayed,
       total: waiting + active + completed + failed + delayed,
     };
+  }
+
+  /**
+   * Expose underlying Bull `Queue` instance for integrations (e.g. Bull Board)
+   */
+  getQueue(): Queue {
+    return this.emailQueue;
   }
 }

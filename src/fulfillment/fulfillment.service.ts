@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderQueueService } from '../queues/order-queue/order-queue.service';
+import { ORDER_EVENT_PUBLISHER } from '../queues/order-queue/order-queue.module';
+import { OrderEventPublisher } from '../queues/interfaces/order-event-publisher.interface';
 
 /**
  * Fulfillment Service — Manages order fulfillment lifecycle
@@ -57,7 +58,8 @@ export class FulfillmentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly orderQueueService: OrderQueueService,
+    @Inject(ORDER_EVENT_PUBLISHER)
+    private readonly orderEventPublisher: OrderEventPublisher,
   ) {}
 
   /**
@@ -145,7 +147,7 @@ export class FulfillmentService {
 
     // Emit fulfillment update event to queue (async)
     if (dto.fulfillmentStatus) {
-      await this.orderQueueService.fulfillmentUpdated({
+      await this.orderEventPublisher.fulfillmentUpdated({
         orderId: updatedOrder.id,
         fulfillmentStatus: updatedOrder.fulfillmentStatus,
         trackingNumber: updatedOrder.trackingNumber,
