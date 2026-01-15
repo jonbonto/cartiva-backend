@@ -20,6 +20,9 @@ import { OrderPaymentService } from './payment.service'
 import { CreateOrderDto } from './dto/order.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { PrismaService } from '../prisma/prisma.service'
+import { FeatureFlagsService, FeatureFlag } from '../feature-flags/feature-flags.service'
+import { CreateOrderUseCase } from './application/create-order.usecase'
+import { CancelOrderUseCase } from './application/cancel-order.usecase'
 
 /**
  * PHASE 5: Orders Controller
@@ -40,6 +43,9 @@ export class OrdersController {
     private ordersService: OrdersService,
     private orderPaymentService: OrderPaymentService,
     private prisma: PrismaService,
+    private featureFlags: FeatureFlagsService,
+    private createOrderUseCase: CreateOrderUseCase,
+    private cancelOrderUseCase: CancelOrderUseCase,
   ) {}
 
   /**
@@ -83,10 +89,34 @@ export class OrdersController {
     }
 
     try {
+      if (this.featureFlags.isEnabled(FeatureFlag.ORDERS_CLEAN_ARCHITECTURE)) {
+        // Use new clean architecture flow
+          const body: any = createOrderDto as any
+          const order = await this.createOrderUseCase.execute({
+            userId,
+            currency: createOrderDto.currency,
+            items: body.items || [],
+            address: body.shippingAddress || body.address,
+            shippingMethodId: createOrderDto.shippingMethodId,
+          })
+
+        return {
+          id: order.id,
+          currency: order.currency,
+          items: order.items,
+          subtotal: order.subtotalCents,
+          taxCents: order.taxCents,
+          shippingCents: order.shippingCents,
+          finalTotal: order.calculateTotal(),
+          createdAt: order.createdAt,
+        }
+      }
+
+      // Fallback to legacy implementation
       const order = await this.ordersService.createOrderFromCart(
         createOrderDto.cartId,
         userId,
-        createOrderDto
+        createOrderDto,
       )
 
       return {
@@ -436,6 +466,32 @@ export class OrdersController {
       }
     } catch (error) {
       this.logger.error(`Failed to fetch customer orders: ${error.message}`)
+      throw error
+    }
+  }
+
+  /**
+   * POST /api/orders/:id/cancel
+   * Cancel an order (user must own the order)
+   */
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  async cancelOrder(@Param('id') orderId: string, @Request() req: any) {
+    const userId = req.user?.id
+
+    try {
+      if (this.featureFlags.isEnabled(FeatureFlag.ORDERS_CLEAN_ARCHITECTURE)) {
+        const order = await this.cancelOrderUseCase.execute({ orderId, userId })
+        return { success: true, id: order.id, status: order.status }
+      }
+
+      // Fallback to legacy service: ensure ownership then update status
+      await this.ordersService.getOrderById(orderId, userId)
+      await this.ordersService.updateOrderStatus(orderId, 'CANCELLED')
+
+      return { success: true }
+    } catch (error) {
+      this.logger.error(`Cancel failed: ${error.message}`)
       throw error
     }
   }
