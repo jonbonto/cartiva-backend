@@ -3,6 +3,21 @@
 **Last Updated**: January 15, 2026  
 **Status**: 📚 Centralized Documentation  
 **Owner**: Engineering Team  
+**Project Status**: ✅ **Phase 0-1 Complete** (Circular dependency eliminated, feature flags ready)
+
+---
+
+## 🎯 Start Here
+
+**New to this project?** Follow this path:
+1. **[Quick Reference](./QUICK_REFERENCE.md)** ← Start here for status overview
+2. **[Architecture Recovery Summary](./ARCHITECTURE_RECOVERY_SUMMARY.md)** ← Comprehensive summary
+3. **[Phase 2 Readiness](./PHASE_2_READINESS.md)** ← What's next (detailed plan)
+
+**Project Status Documents**:
+- **[Phase 0 Complete](./PHASE_0_COMPLETE.md)** - Foundation & feature flags ✅
+- **[Phase 1 Complete](./PHASE_1_COMPLETE.md)** - Circular dependency eliminated ✅
+- **[Weekly Status](./WEEKLY_STATUS_WEEK_1.md)** - Progress tracking
 
 ---
 
