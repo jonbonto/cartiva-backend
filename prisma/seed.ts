@@ -62,6 +62,89 @@ async function main() {
     })
     console.log('Seeded products')
   }
+
+  // Seed tax rules for Phase 6
+  const taxCount = await prisma.taxRule.count()
+  if (taxCount === 0) {
+    await prisma.taxRule.createMany({
+      data: [
+        {
+          country: 'US',
+          state: null,
+          city: null,
+          taxRatePercent: 7.5,
+          taxRateDecimal: (7.5 / 100).toFixed(4),
+          isActive: true,
+        },
+        {
+          country: 'US',
+          state: 'CA',
+          city: null,
+          taxRatePercent: 8.25,
+          taxRateDecimal: (8.25 / 100).toFixed(4),
+          isActive: true,
+        },
+        {
+          country: 'AU',
+          state: null,
+          city: null,
+          taxRatePercent: 10.0,
+          taxRateDecimal: (10.0 / 100).toFixed(4),
+          isActive: true,
+        },
+      ],
+    })
+    console.log('Seeded tax rules')
+  }
+
+  // Seed shipping methods
+  const shipCount = await prisma.shippingMethod.count()
+  if (shipCount === 0) {
+    await prisma.shippingMethod.createMany({
+      data: [
+        {
+          name: 'Standard',
+          description: 'Economical ground shipping',
+          baseCostCents: 500,
+          perKgCostCents: 200,
+          perKmCostCents: 0,
+          minWeightGrams: 0,
+          maxWeightGrams: null,
+          minDeliveryDays: 3,
+          maxDeliveryDays: 7,
+          allowedCountries: [],
+          isActive: true,
+        },
+        {
+          name: 'Express',
+          description: 'Faster delivery with tracking',
+          baseCostCents: 1500,
+          perKgCostCents: 500,
+          perKmCostCents: 0,
+          minWeightGrams: 0,
+          maxWeightGrams: null,
+          minDeliveryDays: 1,
+          maxDeliveryDays: 3,
+          allowedCountries: ['US', 'CA'],
+          isActive: true,
+        },
+        {
+          name: 'Free Promotion',
+          description: 'Free shipping promotion (US only)',
+          baseCostCents: 0,
+          perKgCostCents: 0,
+          perKmCostCents: 0,
+          minWeightGrams: 0,
+          maxWeightGrams: null,
+          minDeliveryDays: 5,
+          maxDeliveryDays: 10,
+          allowedCountries: ['US'],
+          isActive: true,
+        },
+      ],
+    })
+    console.log('Seeded shipping methods')
+  }
 }
 
 main()

@@ -14,10 +14,13 @@ import { AnalyticsModule } from './analytics/analytics.module'
 import { EnvironmentValidator } from './common/environment.validator'
 import { BullModule } from '@nestjs/bull'
 import { ConfigService } from '@nestjs/config'
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    FeatureFlagsModule, // Global feature flags - available everywhere
+    FeatureFlagsModule, // Global feature flags - must be early in import order
     // Global Bull configuration moved to AppModule so queues register correctly
     BullModule.forRootAsync({
       imports: [ConfigModule],
