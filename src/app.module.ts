@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { PrismaModule } from './prisma/prisma.module'
-import { Phase6Module } from './services/phase6.module'
+import { DomainServicesModule } from './services/phase6.module'
+import { TaxModule } from './tax/tax.module'
+import { ShippingModule } from './shipping/shipping.module'
 import { ShippingController } from './shipping/shipping.controller'
 import { TaxController } from './tax/tax.controller'
 import { QueueModule } from './queues/queue.module'
@@ -39,7 +41,9 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module'
       inject: [ConfigService],
     }),
     PrismaModule,
-    Phase6Module,
+    DomainServicesModule,
+    TaxModule,
+    ShippingModule,
     ProductsModule,
     CartModule,
     AdminModule,

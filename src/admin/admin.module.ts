@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common'
 import { AdminController } from './admin.controller'
 import { WebhookAdminController } from './webhook-admin.controller'
-import { TaxRulesController } from './tax-rules.controller'
-import { ShippingMethodsController } from './shipping-methods.controller'
+// Tax and Shipping admin controllers moved to their domain modules
 import { ReservationsController } from './reservations.controller'
+// admin services moved into domain modules
+import { InventoryReservationsAdminService } from './services/inventory-reservations-admin.service'
 import { ProductsModule } from '../products/products.module'
 import { AuthModule } from '../auth/auth.module'
 import { PaymentsModule } from '../payments/payments.module'
@@ -19,16 +20,15 @@ import { FulfillmentModule } from '../fulfillment/fulfillment.module'
  * - Admin importing OrdersModule to use OrderPaymentService
  * 
  * Admin Orders endpoints are now registered via OrdersModule
+ * 
+ * PHASE 2 REFACTORING: Service Layer Extraction
+ * 
+ * Controllers now delegate to service layer instead of accessing Prisma directly.
+ * This improves testability, reusability, and separation of concerns.
  */
 @Module({
   imports: [ProductsModule, AuthModule, PaymentsModule, PrismaModule, FulfillmentModule],
-  controllers: [
-    AdminController,
-    WebhookAdminController,
-    TaxRulesController,
-    ShippingMethodsController,
-    ReservationsController,
-  ],
-  providers: [],
+  controllers: [AdminController, WebhookAdminController, ReservationsController],
+  providers: [InventoryReservationsAdminService],
 })
 export class AdminModule {}

@@ -9,10 +9,10 @@ import { CartModule } from '../cart/cart.module'
 import { ProductsModule } from '../products/products.module'
 import { PaymentsModule } from '../payments/payments.module'
 import { EmailModule } from '../email/email.module'
-import { Phase6Module } from '../services/phase6.module'
+import { DomainServicesModule } from '../services/phase6.module'
 
 @Module({
-  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, Phase6Module],
+  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, DomainServicesModule],
   providers: [OrdersService, OrderPaymentService, AdminOrdersService],
   controllers: [OrdersController, AdminOrdersController],
   exports: [OrdersService, OrderPaymentService],

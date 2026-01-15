@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { TaxService } from './tax/tax.service';
-import { ShippingService } from './shipping/shipping.service';
+import { TaxService } from '../tax/domain/tax.service';
+import { ShippingService } from '../shipping/domain/shipping.service';
 import { InventoryReservationService } from './inventory/inventory-reservation.service';
 
 @Module({
@@ -9,4 +9,4 @@ import { InventoryReservationService } from './inventory/inventory-reservation.s
   providers: [TaxService, ShippingService, InventoryReservationService],
   exports: [TaxService, ShippingService, InventoryReservationService],
 })
-export class Phase6Module {}
+export class DomainServicesModule {}

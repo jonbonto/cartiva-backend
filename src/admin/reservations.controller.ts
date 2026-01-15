@@ -12,6 +12,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AdminGuard } from '../auth/guards/admin.guard'
 import { PrismaService } from '../prisma/prisma.service'
+import { FeatureFlagsService, FeatureFlag } from '../feature-flags/feature-flags.service'
+import { InventoryReservationsAdminService } from './services/inventory-reservations-admin.service'
 import { GetRequestInfo, RequestInfo } from '../common/decorators/request-info.decorator'
 
 export interface ReleaseReservationDto {
@@ -21,7 +23,11 @@ export interface ReleaseReservationDto {
 @Controller('api/admin/reservations')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class ReservationsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private inventoryReservationsAdminService: InventoryReservationsAdminService,
+    private featureFlags: FeatureFlagsService,
+    private prisma: PrismaService,
+  ) {}
 
   @Get()
   @HttpCode(HttpStatus.OK)
@@ -41,6 +47,10 @@ export class ReservationsController {
     }
     if (orderId) {
       where.orderId = { contains: orderId }
+    }
+
+    if (this.featureFlags.isEnabled(FeatureFlag.INVENTORY_RESERVATION_V2)) {
+      return this.inventoryReservationsAdminService.listReservations(undefined, { by: 'createdAt', order: 'desc' }, { limit: limitNum, offset: skip })
     }
 
     const [reservations, total] = await Promise.all([
@@ -79,6 +89,10 @@ export class ReservationsController {
   @Get('stats')
   @HttpCode(HttpStatus.OK)
   async getReservationStats() {
+    if (this.featureFlags.isEnabled(FeatureFlag.INVENTORY_RESERVATION_V2)) {
+      return this.inventoryReservationsAdminService.listReservations(undefined, undefined, { limit: 0, offset: 0 })
+    }
+
     const [
       total,
       reserved,
@@ -140,6 +154,10 @@ export class ReservationsController {
     @Body() dto: ReleaseReservationDto,
     @GetRequestInfo() info: RequestInfo,
   ) {
+    if (this.featureFlags.isEnabled(FeatureFlag.INVENTORY_RESERVATION_V2)) {
+      return this.inventoryReservationsAdminService.releaseReservation(id, dto.reason)
+    }
+
     const reservation = await this.prisma.inventoryReservation.findUnique({ where: { id } })
 
     if (!reservation) {

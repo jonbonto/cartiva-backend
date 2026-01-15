@@ -1,5 +1,5 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
-import { ShippingService } from '../services/shipping/shipping.service';
+import { ShippingService } from './domain/shipping.service';
 
 @Controller('api/shipping')
 export class ShippingController {

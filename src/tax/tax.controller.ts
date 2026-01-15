@@ -1,5 +1,5 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
-import { TaxService } from '../services/tax/tax.service';
+import { TaxService } from './domain/tax.service';
 
 @Controller('api/tax')
 export class TaxController {
