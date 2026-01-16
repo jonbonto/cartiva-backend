@@ -17,6 +17,7 @@ import { EnvironmentValidator } from './common/environment.validator'
 import { BullModule } from '@nestjs/bull'
 import { ConfigService } from '@nestjs/config'
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module'
+import { DiscountRuleModule } from './discount-rule/discount-rule.module'
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module'
     OrdersModule,
     AnalyticsModule,
     QueueModule,
+    DiscountRuleModule
   ],
   controllers: [ShippingController, TaxController],
   providers: [EnvironmentValidator],

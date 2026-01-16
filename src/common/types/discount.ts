@@ -35,7 +35,9 @@ export interface DiscountRule {
   id: string
   code?: string // e.g., "SAVE10" for user-facing codes
   type: 'percentage' | 'fixed_amount'
-  value: number // e.g., 10 for 10% or 500 for $5 off
+  // For `percentage` type: value is percent (e.g. 10 means 10%).
+  // For `fixed_amount` type: value is stored in cents (e.g. 500 means $5.00).
+  value: number
   appliesTo: 'cart_wide' | 'specific_product' | 'category'
   targetProductIds?: number[] // If appliesTo: specific_product
   targetCategories?: string[] // If appliesTo: category (future)
@@ -204,8 +206,8 @@ export class DiscountEngine {
       const discountCents = Math.floor((amountCents * rule.value) / 100)
       return { amountCents: discountCents, currency }
     } else {
-      // fixed_amount
-      const discountCents = Math.min(rule.value * 100, amountCents) // Don't discount more than total
+      // fixed_amount: `rule.value` is already in cents
+      const discountCents = Math.min(rule.value, amountCents) // Don't discount more than total
       return { amountCents: discountCents, currency }
     }
   }
@@ -226,7 +228,9 @@ export class DiscountEngine {
     if (rule.type === 'percentage') {
       return `${prefix}${rule.value}% off`
     } else {
-      return `${prefix}$${rule.value} off`
+      // value is cents; format dollars
+      const dollars = (rule.value / 100).toFixed(2)
+      return `${prefix}$${dollars} off`
     }
   }
 }
