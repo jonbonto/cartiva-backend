@@ -145,6 +145,42 @@ async function main() {
     })
     console.log('Seeded shipping methods')
   }
+
+  // Seed discount rules
+  const discountCount = await prisma.discountRule.count()
+  if (discountCount === 0) {
+    await prisma.discountRule.createMany({
+      data: [
+        {
+          code: 'SAVE10',
+          type: 'percentage',
+          value: 10,
+          appliesTo: 'cart_wide',
+          targetProductIds: [],
+          minCartValueCents: null,
+          maxUsageCount: 1000,
+          usageCount: 0,
+          isStackable: false,
+          priority: 10,
+          isActive: true,
+        },
+        {
+          code: 'FIVEOFF',
+          type: 'fixed_amount',
+          value: 500, // cents
+          appliesTo: 'cart_wide',
+          targetProductIds: [],
+          minCartValueCents: 2000,
+          maxUsageCount: null,
+          usageCount: 0,
+          isStackable: true,
+          priority: 5,
+          isActive: true,
+        }
+      ]
+    })
+    console.log('Seeded discount rules')
+  }
 }
 
 main()

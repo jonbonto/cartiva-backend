@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { CreateDiscountRuleUseCase } from './application/create-discount-rule.usecase';
 import { GetDiscountRuleQuery } from './application/get-discount-rule.query';
 import { CreateDiscountRuleDto } from './dto/create-discount-rule.dto';
@@ -7,8 +7,12 @@ import { ListDiscountRulesQuery } from './application/list-discount-rules.query'
 import { UpdateDiscountRuleUseCase } from './application/update-discount-rule.usecase';
 import { DeleteDiscountRuleUseCase } from './application/delete-discount-rule.usecase';
 import { UpdateDiscountRuleDto } from './dto/update-discount-rule.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt.guard';
+import { AdminAuthGuard } from '../admin/auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('api/admin/discount-rules')
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class DiscountRuleController {
   constructor(
     private readonly createUseCase: CreateDiscountRuleUseCase,
@@ -18,7 +22,8 @@ export class DiscountRuleController {
     private readonly deleteUseCase: DeleteDiscountRuleUseCase,
   ) {}
 
-  @Post('')
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateDiscountRuleDto): Promise<DiscountRule> {
     return this.createUseCase.execute(dto);
   }

@@ -1,4 +1,4 @@
-export class CreateDiscountRuleDto {
+export interface CreateDiscountRuleDto {
   code?: string;
   type: 'percentage' | 'fixed_amount';
   value: number; // percent for percentage, cents for fixed_amount

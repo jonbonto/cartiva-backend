@@ -1,4 +1,4 @@
-export class UpdateDiscountRuleDto {
+export interface UpdateDiscountRuleDto {
   code?: string;
   type?: 'percentage' | 'fixed_amount';
   value?: number;
