@@ -13,6 +13,8 @@ import { DomainServicesModule } from '../services/phase6.module'
 import { OrderRepositoryPrisma } from './infrastructure/order.repository.prisma'
 import { CreateOrderUseCase } from './application/create-order.usecase'
 import { CancelOrderUseCase } from './application/cancel-order.usecase'
+import { GetOrderQuery } from './application/get-order.query'
+import { GetCustomerOrdersQuery } from './application/get-customer-orders.query'
 import { ORDER_REPOSITORY } from './domain/order.repository'
 
 @Module({
@@ -24,6 +26,8 @@ import { ORDER_REPOSITORY } from './domain/order.repository'
     { provide: ORDER_REPOSITORY, useClass: OrderRepositoryPrisma },
     CreateOrderUseCase,
     CancelOrderUseCase,
+    GetOrderQuery,
+    GetCustomerOrdersQuery,
   ],
   controllers: [OrdersController, AdminOrdersController],
   exports: [OrdersService, OrderPaymentService],

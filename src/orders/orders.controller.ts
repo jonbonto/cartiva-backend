@@ -19,10 +19,10 @@ import { OrdersService } from './orders.service'
 import { OrderPaymentService } from './payment.service'
 import { CreateOrderDto } from './dto/order.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
-import { PrismaService } from '../prisma/prisma.service'
-import { FeatureFlagsService, FeatureFlag } from '../feature-flags/feature-flags.service'
 import { CreateOrderUseCase } from './application/create-order.usecase'
 import { CancelOrderUseCase } from './application/cancel-order.usecase'
+import { GetOrderQuery } from './application/get-order.query'
+import { GetCustomerOrdersQuery } from './application/get-customer-orders.query'
 
 /**
  * PHASE 5: Orders Controller
@@ -42,10 +42,10 @@ export class OrdersController {
   constructor(
     private ordersService: OrdersService,
     private orderPaymentService: OrderPaymentService,
-    private prisma: PrismaService,
-    private featureFlags: FeatureFlagsService,
     private createOrderUseCase: CreateOrderUseCase,
     private cancelOrderUseCase: CancelOrderUseCase,
+    private getOrderQuery: GetOrderQuery,
+    private getCustomerOrdersQuery: GetCustomerOrdersQuery,
   ) {}
 
   /**
@@ -89,44 +89,25 @@ export class OrdersController {
     }
 
     try {
-      if (this.featureFlags.isEnabled(FeatureFlag.ORDERS_CLEAN_ARCHITECTURE)) {
-        // Use new clean architecture flow
-          const body: any = createOrderDto as any
-          const order = await this.createOrderUseCase.execute({
-            userId,
-            currency: createOrderDto.currency,
-            items: body.items || [],
-            address: body.shippingAddress || body.address,
-            shippingMethodId: createOrderDto.shippingMethodId,
-          })
+      const body: any = createOrderDto as any
 
-        return {
-          id: order.id,
-          currency: order.currency,
-          items: order.items,
-          subtotal: order.subtotalCents,
-          taxCents: order.taxCents,
-          shippingCents: order.shippingCents,
-          finalTotal: order.calculateTotal(),
-          createdAt: order.createdAt,
-        }
-      }
-
-      // Fallback to legacy implementation
-      const order = await this.ordersService.createOrderFromCart(
-        createOrderDto.cartId,
+      const order = await this.createOrderUseCase.execute({
         userId,
-        createOrderDto,
-      )
+        currency: createOrderDto.currency,
+        cartId: createOrderDto.cartId,
+        items: body.items || [],
+        address: body.shippingAddress || body.address,
+        shippingMethodId: createOrderDto.shippingMethodId,
+      })
 
       return {
         id: order.id,
         currency: order.currency,
         items: order.items,
-        subtotal: order.subtotal,
-        appliedDiscounts: order.appliedDiscounts,
-        discountTotal: order.discountTotal,
-        finalTotal: order.finalTotal,
+        subtotal: order.subtotalCents,
+        taxCents: order.taxCents,
+        shippingCents: order.shippingCents,
+        finalTotal: order.calculateTotal(),
         createdAt: order.createdAt,
       }
     } catch (error) {
@@ -240,27 +221,10 @@ export class OrdersController {
   @Get(':id/tracking')
   async getOrderTracking(@Param('id') orderId: string) {
     try {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        select: {
-          id: true,
-          status: true,
-          fulfillmentStatus: true,
-          shippingProvider: true,
-          trackingNumber: true,
-          createdAt: true,
-          paidAt: true,
-          shippedAt: true,
-          deliveredAt: true,
-        },
-      })
+      const order = await this.ordersService.getOrderById(orderId)
 
-      if (!order) {
-        throw new BadRequestException('Order not found')
-      }
-
-      // Build timeline
-      const timeline = []
+      // Build timeline using order timestamps
+      const timeline: Array<any> = []
 
       timeline.push({
         status: 'created',
@@ -269,43 +233,45 @@ export class OrdersController {
         completed: true,
       })
 
-      if (order.paidAt) {
+      if ((order as any).paidAt) {
         timeline.push({
           status: 'paid',
           label: 'Payment Confirmed',
-          timestamp: order.paidAt,
+          timestamp: (order as any).paidAt,
           completed: true,
         })
       }
+
+      const fulfillmentStatus = (order as any).fulfillmentStatus
 
       timeline.push({
         status: 'processing',
         label: 'Processing',
         timestamp: null,
         completed: ['processing', 'shipped', 'delivered'].includes(
-          order.fulfillmentStatus,
+          fulfillmentStatus,
         ),
       })
 
-      if (order.shippedAt || order.fulfillmentStatus === 'shipped') {
+      if ((order as any).shippedAt || fulfillmentStatus === 'shipped') {
         timeline.push({
           status: 'shipped',
           label: 'Shipped',
-          timestamp: order.shippedAt,
+          timestamp: (order as any).shippedAt,
           completed: true,
         })
       }
 
-      if (order.deliveredAt || order.fulfillmentStatus === 'delivered') {
+      if ((order as any).deliveredAt || fulfillmentStatus === 'delivered') {
         timeline.push({
           status: 'delivered',
           label: 'Delivered',
-          timestamp: order.deliveredAt,
-          completed: order.fulfillmentStatus === 'delivered',
+          timestamp: (order as any).deliveredAt,
+          completed: fulfillmentStatus === 'delivered',
         })
       }
 
-      if (order.fulfillmentStatus === 'cancelled') {
+      if (fulfillmentStatus === 'cancelled') {
         timeline.push({
           status: 'cancelled',
           label: 'Cancelled',
@@ -319,9 +285,9 @@ export class OrdersController {
         data: {
           orderId: order.id,
           orderStatus: order.status,
-          fulfillmentStatus: order.fulfillmentStatus,
-          shippingProvider: order.shippingProvider,
-          trackingNumber: order.trackingNumber,
+          fulfillmentStatus: fulfillmentStatus,
+          shippingProvider: (order as any).shippingProvider,
+          trackingNumber: (order as any).trackingNumber,
           timeline,
         },
       }
@@ -480,16 +446,8 @@ export class OrdersController {
     const userId = req.user?.id
 
     try {
-      if (this.featureFlags.isEnabled(FeatureFlag.ORDERS_CLEAN_ARCHITECTURE)) {
-        const order = await this.cancelOrderUseCase.execute({ orderId, userId })
-        return { success: true, id: order.id, status: order.status }
-      }
-
-      // Fallback to legacy service: ensure ownership then update status
-      await this.ordersService.getOrderById(orderId, userId)
-      await this.ordersService.updateOrderStatus(orderId, 'CANCELLED')
-
-      return { success: true }
+      const order = await this.cancelOrderUseCase.execute({ orderId, userId })
+      return { success: true, id: order.id, status: order.status }
     } catch (error) {
       this.logger.error(`Cancel failed: ${error.message}`)
       throw error

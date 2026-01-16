@@ -13,8 +13,7 @@ import {
 } from '@nestjs/common'
 import { JwtAuthGuard } from '../../auth/guards/jwt.guard'
 import { AdminGuard } from '../../auth/guards/admin.guard'
-import { PrismaService } from '../../prisma/prisma.service'
-import { FeatureFlagsService, FeatureFlag } from '../../feature-flags/feature-flags.service'
+import { FeatureFlag } from '../../feature-flags/feature-flags.service'
 import { TaxRulesAdminService } from './services/tax-rules-admin.service'
 import { GetRequestInfo, RequestInfo } from '../../common/decorators/request-info.decorator'
 
@@ -35,11 +34,7 @@ export interface UpdateTaxRuleDto {
 @Controller('api/admin/tax-rules')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class TaxRulesController {
-  constructor(
-    private taxRulesAdminService: TaxRulesAdminService,
-    private featureFlags: FeatureFlagsService,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private taxRulesAdminService: TaxRulesAdminService) {}
 
   @Get()
   @HttpCode(HttpStatus.OK)
@@ -51,28 +46,7 @@ export class TaxRulesController {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20))
     const skip = (pageNum - 1) * limitNum
 
-    if (this.featureFlags.isEnabled(FeatureFlag.TAX_SERVICE_LAYER)) {
-      return this.taxRulesAdminService.listTaxRules(undefined, { by: 'country', order: 'asc' }, { limit: limitNum, offset: skip })
-    }
-
-    const [taxRules, total] = await Promise.all([
-      this.prisma.taxRule.findMany({
-        skip,
-        take: limitNum,
-        orderBy: [{ country: 'asc' }, { state: 'asc' }, { city: 'asc' }],
-      }),
-      this.prisma.taxRule.count(),
-    ])
-
-    return {
-      data: taxRules,
-      meta: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
-    }
+    return this.taxRulesAdminService.listTaxRules(undefined, { by: 'country', order: 'asc' }, { limit: limitNum, offset: skip })
   }
 
   @Post()
@@ -81,30 +55,7 @@ export class TaxRulesController {
     @Body() dto: CreateTaxRuleDto,
     @GetRequestInfo() info: RequestInfo,
   ) {
-    if (this.featureFlags.isEnabled(FeatureFlag.TAX_SERVICE_LAYER)) {
-      return this.taxRulesAdminService.createTaxRule(dto)
-    }
-
-    if (!dto.country || dto.country.trim().length === 0) {
-      throw new Error('Country is required')
-    }
-
-    if (dto.taxRate < 0 || dto.taxRate > 100) {
-      throw new Error('Tax rate must be between 0 and 100')
-    }
-
-    const taxRule = await this.prisma.taxRule.create({
-      data: {
-        country: dto.country.toUpperCase(),
-        state: dto.state || null,
-        city: dto.city || null,
-        taxRatePercent: dto.taxRate,
-        taxRateDecimal: parseFloat((dto.taxRate / 100).toFixed(4)),
-        isActive: true,
-      },
-    })
-
-    return taxRule
+    return this.taxRulesAdminService.createTaxRule(dto)
   }
 
   @Patch(':id')
@@ -114,33 +65,7 @@ export class TaxRulesController {
     @Body() dto: UpdateTaxRuleDto,
     @GetRequestInfo() info: RequestInfo,
   ) {
-    if (this.featureFlags.isEnabled(FeatureFlag.TAX_SERVICE_LAYER)) {
-      return this.taxRulesAdminService.updateTaxRule(id, dto)
-    }
-
-    const existing = await this.prisma.taxRule.findUnique({ where: { id } })
-    if (!existing) {
-      throw new Error('Tax rule not found')
-    }
-
-    if (dto.taxRate !== undefined) {
-      if (dto.taxRate < 0 || dto.taxRate > 100) {
-        throw new Error('Tax rate must be between 0 and 100')
-      }
-    }
-
-    const updated = await this.prisma.taxRule.update({
-      where: { id },
-      data: {
-        country: dto.country ? dto.country.toUpperCase() : undefined,
-        state: dto.state !== undefined ? dto.state : undefined,
-        city: dto.city !== undefined ? dto.city : undefined,
-        taxRatePercent: dto.taxRate !== undefined ? dto.taxRate : undefined,
-        taxRateDecimal: dto.taxRate !== undefined ? parseFloat((dto.taxRate / 100).toFixed(4)) : undefined,
-      },
-    })
-
-    return updated
+    return this.taxRulesAdminService.updateTaxRule(id, dto)
   }
 
   @Delete(':id')
@@ -149,15 +74,6 @@ export class TaxRulesController {
     @Param('id') id: string,
     @GetRequestInfo() info: RequestInfo,
   ) {
-    if (this.featureFlags.isEnabled(FeatureFlag.TAX_SERVICE_LAYER)) {
-      return this.taxRulesAdminService.deleteTaxRule(id)
-    }
-
-    const existing = await this.prisma.taxRule.findUnique({ where: { id } })
-    if (!existing) {
-      throw new Error('Tax rule not found')
-    }
-
-    await this.prisma.taxRule.delete({ where: { id } })
+    return this.taxRulesAdminService.deleteTaxRule(id)
   }
 }

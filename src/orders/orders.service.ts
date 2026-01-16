@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { Inject } from '@nestjs/common'
+import { ORDER_REPOSITORY, OrderRepository } from './domain/order.repository'
 import { CartService } from '../cart/cart.service'
 import { ProductsService } from '../products/products.service'
 import { TaxService } from '../tax/domain/tax.service'
@@ -31,6 +33,7 @@ export class OrdersService {
     private taxService: TaxService,
     private shippingService: ShippingService,
     private inventoryReservationService: InventoryReservationService,
+    @Inject(ORDER_REPOSITORY) private orderRepository: OrderRepository,
   ) {}
 
 
@@ -251,52 +254,7 @@ export class OrdersService {
     cartId?: number
   ) {
     try {
-      const dbOrder = await this.prisma.order.create({
-        data: {
-          id: order.id,
-          userId: parseInt(order.userId),
-          currency: order.currency,
-          subtotalAmountCents: order.subtotal.amountCents,
-          discountTotalAmountCents: order.discountTotal.amountCents,
-          taxAmountCents: order.taxAmount.amountCents,
-          shippingCostCents: order.shippingCost.amountCents,
-          totalBeforePaymentCents: order.totalBeforePayment.amountCents,
-          finalTotalAmountCents: order.finalTotal.amountCents,
-          shippingMethodId: shippingMethodId || null,
-          appliedDiscounts: order.appliedDiscounts as any,
-          status: 'PENDING',
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-          items: {
-            createMany: {
-              data: order.items.map((item) => ({
-                productId: item.productId,
-                productName: item.productName,
-                unitPriceCents: item.pricePerUnitAtPurchase.amountCents,
-                quantity: item.quantity,
-                subtotalAmountCents: item.subtotal.amountCents,
-              })),
-            },
-          },
-        },
-        include: { items: true },
-      })
-
-      // Save shipping address if provided (Phase 6)
-      if (shippingAddress) {
-        await this.prisma.shippingAddress.create({
-          data: {
-            orderId: dbOrder.id,
-            fullName: shippingAddress.fullName,
-            streetLine1: shippingAddress.streetLine1,
-            streetLine2: shippingAddress.streetLine2,
-            city: shippingAddress.city,
-            stateProvince: shippingAddress.stateProvince,
-            postalCode: shippingAddress.postalCode,
-            country: shippingAddress.country,
-            phoneNumber: shippingAddress.phoneNumber,
-          },
-        })
-      }
+      const dbOrder = await this.orderRepository.persistOrder(order, shippingMethodId, shippingAddress, cartId)
 
       // Create inventory reservations for each order item (Phase 6)
       for (const item of dbOrder.items) {
@@ -308,11 +266,8 @@ export class OrdersService {
             item.id
           )
 
-          // Link reservation to order item
-          await this.prisma.orderItem.update({
-            where: { id: item.id },
-            data: { reservationId: reservation.id },
-          })
+          // Link reservation to order item via repository
+          await this.orderRepository.linkReservation(item.id, reservation.id)
         } catch (error) {
           // Log reservation error but don't fail the entire order
           console.error(`Failed to create reservation for item ${item.id}:`, error.message)
@@ -331,16 +286,11 @@ export class OrdersService {
    * Get order by ID
    */
   async getOrderById(orderId: string, userId?: number) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true, payment: true },
-    })
-
+    const order = await this.orderRepository.findRawById(orderId)
     if (!order) {
       throw new BadRequestException(`Order not found: ${orderId}`)
     }
 
-    // Verify ownership if user provided
     if (userId && order.userId !== userId) {
       throw new BadRequestException('Unauthorized')
     }
@@ -353,10 +303,7 @@ export class OrdersService {
    * This must be atomic — either all succeed or all fail
    */
   async deductStockForOrder(orderId: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    })
+    const order = await this.orderRepository.findRawById(orderId)
 
     if (!order) {
       throw new BadRequestException(`Order not found: ${orderId}`)
@@ -365,7 +312,7 @@ export class OrdersService {
     try {
       // Use transaction for atomicity
       await this.prisma.$transaction(
-        order.items.map((item) =>
+        order.items.map((item: any) =>
           this.prisma.product.update({
             where: { id: item.productId },
             data: { stock: { decrement: item.quantity } },
@@ -422,35 +369,25 @@ export class OrdersService {
       where.status = status
     }
 
-    // Count total orders
-    const total = await this.prisma.order.count({ where })
-
-    // Fetch orders with pagination
-    const orders = await this.prisma.order.findMany({
-      where,
-      select: {
-        id: true,
-        currency: true,
-        status: true,
-        fulfillmentStatus: true,
-        finalTotalAmountCents: true,
-        createdAt: true,
-        paidAt: true,
-        shippedAt: true,
-        deliveredAt: true,
-        items: {
-          select: {
-            id: true,
-            productName: true,
-            quantity: true,
-            unitPriceCents: true,
-            subtotalAmountCents: true,
-          },
+    const { orders, total } = await this.orderRepository.findRawByUserId(userId, skip, limit, where, { [sortBy]: sortOrder }, {
+      id: true,
+      currency: true,
+      status: true,
+      fulfillmentStatus: true,
+      finalTotalAmountCents: true,
+      createdAt: true,
+      paidAt: true,
+      shippedAt: true,
+      deliveredAt: true,
+      items: {
+        select: {
+          id: true,
+          productName: true,
+          quantity: true,
+          unitPriceCents: true,
+          subtotalAmountCents: true,
         },
       },
-      orderBy: { [sortBy]: sortOrder },
-      skip,
-      take: limit,
     })
 
     return {
