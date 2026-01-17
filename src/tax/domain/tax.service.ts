@@ -17,19 +17,18 @@ export class TaxService {
     if (!taxRule) return 0
 
     const taxRateDecimal = parseFloat(taxRule.taxRateDecimal.toString())
-    const taxCents = Math.round(subtotalCents * (taxRateDecimal / 100))
+    // `taxRateDecimal` is stored as a decimal (e.g., 0.0850 for 8.5%), so multiply directly
+    const taxCents = Math.round(subtotalCents * taxRateDecimal)
     return taxCents
   }
 
   private async findApplicableTaxRule(address: TaxAddress) {
     if (address.city && address.state && address.country) {
-      const cityRule = await this.prisma.taxRule.findUnique({
+      const cityRule = await this.prisma.taxRule.findFirst({
         where: {
-          country_state_city: {
-            country: address.country,
-            state: address.state,
-            city: address.city,
-          },
+          country: address.country,
+          state: address.state,
+          city: address.city,
         },
       })
 
@@ -39,13 +38,11 @@ export class TaxService {
     }
 
     if (address.state && address.country) {
-      const stateRule = await this.prisma.taxRule.findUnique({
+      const stateRule = await this.prisma.taxRule.findFirst({
         where: {
-          country_state_city: {
-            country: address.country,
-            state: address.state,
-            city: null,
-          },
+          country: address.country,
+          state: address.state,
+          city: null,
         },
       })
 
@@ -55,13 +52,11 @@ export class TaxService {
     }
 
     if (address.country) {
-      const countryRule = await this.prisma.taxRule.findUnique({
+      const countryRule = await this.prisma.taxRule.findFirst({
         where: {
-          country_state_city: {
-            country: address.country,
-            state: null,
-            city: null,
-          },
+          country: address.country,
+          state: null,
+          city: null,
         },
       })
 

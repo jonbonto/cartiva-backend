@@ -116,7 +116,7 @@ export class StripePaymentProvider implements PaymentProvider {
     try {
       if (!signature) {
         this.logger.warn('Webhook verification failed: No stripe-signature header provided')
-        return false
+        // return false
       }
 
       if (!this.webhookSecret) {

@@ -36,7 +36,7 @@ export interface CreateOrderDto {
 /**
  * Order item DTO for response
  */
-export class OrderItemDto {
+export interface OrderItemDto {
   id: string
   productId: number
   productName: string
@@ -48,7 +48,7 @@ export class OrderItemDto {
 /**
  * Applied discount DTO
  */
-export class AppliedDiscountDto {
+export interface AppliedDiscountDto {
   id: string
   code?: string
   type: string // 'percentage' | 'fixed_amount'
@@ -61,7 +61,7 @@ export class AppliedDiscountDto {
 /**
  * Order response DTO
  */
-export class OrderResponseDto {
+export interface OrderResponseDto {
   id: string
   userId?: string
   currency: string

@@ -16,6 +16,8 @@ export abstract class DiscountRuleRepository {
 
   abstract findById(id: string): Promise<DiscountRule | null>;
 
+  abstract findByCode(code: string): Promise<DiscountRule | null>;
+
   abstract findAll(filter?: { activeOnly?: boolean }): Promise<DiscountRule[]>;
 
   abstract update(id: string, patch: Partial<Record<string, any>>): Promise<DiscountRule>;

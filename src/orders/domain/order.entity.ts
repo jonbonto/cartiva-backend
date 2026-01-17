@@ -23,6 +23,8 @@ export class Order {
     public subtotalCents: number,
     public taxCents: number,
     public shippingCents: number,
+    public discountTotalCents: number,
+    public appliedDiscounts: Array<any>,
     public createdAt: Date = new Date(),
   ) {}
 
@@ -42,6 +44,8 @@ export class Order {
       subtotal,
       0,
       0,
+      0,
+      [],
       new Date(),
     )
   }
@@ -55,6 +59,8 @@ export class Order {
     subtotalCents: number
     taxCents: number
     shippingCents: number
+    discountTotalCents: number
+    appliedDiscounts: Array<any>
     createdAt?: Date
   }) {
     return new Order(
@@ -66,6 +72,8 @@ export class Order {
       params.subtotalCents,
       params.taxCents,
       params.shippingCents,
+      params.discountTotalCents ?? 0,
+      params.appliedDiscounts ?? [],
       params.createdAt || new Date(),
     )
   }
@@ -81,7 +89,7 @@ export class Order {
   }
 
   calculateTotal(): number {
-    return this.subtotalCents + this.taxCents + this.shippingCents
+    return this.subtotalCents - (this.discountTotalCents || 0) + this.taxCents + this.shippingCents
   }
 
   canBeCancelled(): boolean {

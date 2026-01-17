@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common'
+import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { Inject } from '@nestjs/common'
 import { ORDER_REPOSITORY, OrderRepository } from './domain/order.repository'
@@ -26,6 +26,7 @@ import { MoneyValue } from '../common/types/money'
  */
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name)
   constructor(
     private prisma: PrismaService,
     private cartService: CartService,
@@ -228,6 +229,13 @@ export class OrdersService {
 
     // 8. Validate order integrity
     OrderValidator.validate(order)
+
+    // Debug logging: show calculated money values before persist
+    try {
+      this.logger.log(`Checkout amounts — subtotal: ${JSON.stringify(subtotal)}, discountTotal: ${JSON.stringify(discountTotal)}, taxAmount: ${JSON.stringify(taxAmount)}, shippingCost: ${JSON.stringify(shippingCost)}, totalBeforePayment: ${JSON.stringify(totalBeforePayment)}`)
+    } catch (e) {
+      // ignore logging errors
+    }
 
     // 9. Persist order with shipping address and create inventory reservations
     const persistedOrder = await this.persistOrder(

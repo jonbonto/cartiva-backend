@@ -63,6 +63,13 @@ export class DiscountRuleRepositoryPrisma implements DiscountRuleRepository {
     return this.map(db);
   }
 
+  async findByCode(code: string): Promise<DiscountRule | null> {
+    if (!code) return null
+    const db = await this.prisma.discountRule.findUnique({ where: { code } });
+    if (!db) return null
+    return this.map(db)
+  }
+
   async findAll(filter?: { activeOnly?: boolean }): Promise<DiscountRule[]> {
     const where: any = {};
     if (filter?.activeOnly) where.isActive = true;

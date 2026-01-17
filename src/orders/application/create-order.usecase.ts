@@ -23,10 +23,21 @@ export class CreateOrderUseCase {
     items?: Array<{ productId: number; name: string; priceCents: number; quantity: number }>
     address?: { country?: string; state?: string; city?: string }
     shippingMethodId?: string
+    discountCodes?: string[]
   }) {
     // If a cartId is provided, delegate to legacy OrdersService which handles cart snapshotting
     if (command.cartId) {
-      const legacy: any = await this.ordersService.createOrderFromCart(command.cartId, command.userId, { cartId: command.cartId, currency: command.currency, shippingAddress: command.address, shippingMethodId: command.shippingMethodId } as any)
+      const legacy: any = await this.ordersService.createOrderFromCart(
+        command.cartId,
+        command.userId,
+        {
+          cartId: command.cartId,
+          currency: command.currency,
+          shippingAddress: command.address,
+          shippingMethodId: command.shippingMethodId,
+          discountCodes: command.discountCodes,
+        } as any,
+      )
 
       // Map legacy order to domain Order
       const items: OrderItem[] = (legacy.items || []).map((it: any) => ({
@@ -47,6 +58,8 @@ export class CreateOrderUseCase {
         subtotalCents: legacy.subtotal?.amountCents || legacy.subtotalAmountCents || 0,
         taxCents: legacy.taxAmount?.amountCents || legacy.taxAmountCents || 0,
         shippingCents: legacy.shippingCost?.amountCents || legacy.shippingCostCents || 0,
+        discountTotalCents: legacy.discountTotal?.amountCents || legacy.discountTotalAmountCents || 0,
+        appliedDiscounts: legacy.appliedDiscounts || [],
         createdAt: legacy.createdAt,
       })
     }

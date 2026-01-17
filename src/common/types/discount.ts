@@ -150,7 +150,8 @@ export class DiscountEngine {
       throw new Error(`Discount rule expired at ${rule.expiresAt}`)
     }
 
-    if (rule.usageCount !== undefined && rule.maxUsageCount !== undefined) {
+    // Only enforce usage limit when both values are numeric (treat null as "not set")
+    if (typeof rule.usageCount === 'number' && typeof rule.maxUsageCount === 'number') {
       if (rule.usageCount >= rule.maxUsageCount) {
         throw new Error(`Discount rule usage limit reached (${rule.usageCount}/${rule.maxUsageCount})`)
       }

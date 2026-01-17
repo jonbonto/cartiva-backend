@@ -98,8 +98,9 @@ export class OrdersController {
         items: body.items || [],
         address: body.shippingAddress || body.address,
         shippingMethodId: createOrderDto.shippingMethodId,
+        discountCodes: createOrderDto.discountCodes,
       })
-
+      const finalTotalAmountCents = order.calculateTotal()
       return {
         id: order.id,
         currency: order.currency,
@@ -107,7 +108,8 @@ export class OrdersController {
         subtotal: order.subtotalCents,
         taxCents: order.taxCents,
         shippingCents: order.shippingCents,
-        finalTotal: order.calculateTotal(),
+        finalTotalAmountCents,
+        finalTotal: finalTotalAmountCents / 100,
         createdAt: order.createdAt,
       }
     } catch (error) {

@@ -16,12 +16,12 @@ export class TaxController {
       throw new BadRequestException('amount query parameter is required');
     }
 
-    // Accept amount as decimal (e.g., 12.34) and convert to cents
+    // Accept amount as decimal (e.g., 12.34) in cents
     const parsed = parseFloat(amount as string);
     if (Number.isNaN(parsed)) {
       throw new BadRequestException('amount must be a valid number');
     }
-    const subtotalCents = Math.round(parsed * 100);
+    const subtotalCents = Math.round(parsed);
 
     const taxCents = await this.taxService.calculateTax({ country, state, city }, subtotalCents);
 
