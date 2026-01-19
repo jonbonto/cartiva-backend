@@ -1,0 +1,36 @@
+config:
+  target: "${BASE_URL:http://localhost:3000}"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+  defaults:
+    headers:
+      Content-Type: application/json
+scenarios:
+  - name: Create users and addresses
+    flow:
+      - post:
+          url: "/api/auth/signup"
+          json:
+            name: "Perf User"
+            email: "perf.user.{{ $randomString(6) }}@example.com"
+            password: "password"
+          capture:
+            - json: "$.token"
+              as: "token"
+      - loop:
+          count: 100
+          flow:
+            - post:
+                url: "/api/users/me/addresses"
+                headers:
+                  Authorization: "Bearer {{ token }}"
+                json:
+                  fullName: "Perf User"
+                  streetLine1: "Perf Addr"
+                  city: "Testville"
+                  stateProvince: "TS"
+                  postalCode: "00000"
+                  country: "US"
+
+# Note: Edit `count` under `loop` to change addresses per user, or replace with a generated value.

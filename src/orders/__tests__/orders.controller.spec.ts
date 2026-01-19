@@ -1,4 +1,6 @@
 import { OrdersController } from '../orders.controller'
+import { FeatureFlag } from '../../feature-flags/feature-flags.service'
+import { BadRequestException } from '@nestjs/common'
 
 describe('OrdersController (unit)', () => {
   let controller: OrdersController
@@ -19,6 +21,8 @@ describe('OrdersController (unit)', () => {
   const mockCancelOrderUseCase: any = { execute: jest.fn() }
   const mockGetOrderQuery: any = { execute: jest.fn() }
   const mockGetCustomerOrdersQuery: any = { execute: jest.fn() }
+  const mockFeatureFlags: any = { isEnabled: jest.fn() }
+  const mockUsersService: any = { getAddress: jest.fn() }
 
   beforeEach(() => {
     controller = new OrdersController(
@@ -28,6 +32,8 @@ describe('OrdersController (unit)', () => {
       mockCancelOrderUseCase,
       mockGetOrderQuery,
       mockGetCustomerOrdersQuery,
+      mockFeatureFlags,
+      mockUsersService,
     )
   })
 
@@ -71,6 +77,88 @@ describe('OrdersController (unit)', () => {
     const finalCents = (res as any).finalTotalAmountCents ?? res.finalTotal
     expect(finalCents).toBe(1300)
     expect(res.createdAt).toEqual(fakeOrder.createdAt)
+  })
+
+  it('POST /checkout resolves saved address when flag enabled', async () => {
+    const dto: any = { cartId: 321, currency: 'USD', shippingAddressId: 'addr_1' }
+    const req: any = { user: { id: 7 } }
+
+    mockFeatureFlags.isEnabled.mockReturnValue(true)
+
+    const saved = {
+      id: 'addr_1',
+      country: 'US',
+      stateProvince: 'NY',
+      city: 'New York',
+      postalCode: '10001',
+    }
+
+    mockUsersService.getAddress.mockResolvedValue(saved)
+
+    const fakeOrder: any = {
+      id: 'order_x',
+      currency: 'USD',
+      items: [],
+      subtotalCents: 0,
+      taxCents: 0,
+      shippingCents: 0,
+      calculateTotal: () => 0,
+      createdAt: new Date(),
+    }
+
+    mockCreateOrderUseCase.execute.mockResolvedValue(fakeOrder)
+
+    const res = await controller.checkout(dto, req)
+
+    expect(mockUsersService.getAddress).toHaveBeenCalledWith(7, 'addr_1')
+    expect(mockCreateOrderUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 7,
+      currency: 'USD',
+      cartId: 321,
+      address: { country: 'US', state: 'NY', city: 'New York', postalCode: '10001' },
+    }))
+    expect(res.id).toBe('order_x')
+  })
+
+  it('POST /checkout ignores shippingAddressId when flag disabled', async () => {
+    const dto: any = { cartId: 555, currency: 'USD', shippingAddressId: 'addr_2' }
+    const req: any = { user: { id: 9 } }
+
+    mockFeatureFlags.isEnabled.mockReturnValue(false)
+
+    const fakeOrder: any = {
+      id: 'order_y',
+      currency: 'USD',
+      items: [],
+      subtotalCents: 0,
+      taxCents: 0,
+      shippingCents: 0,
+      calculateTotal: () => 0,
+      createdAt: new Date(),
+    }
+
+    mockCreateOrderUseCase.execute.mockResolvedValue(fakeOrder)
+
+    const res = await controller.checkout(dto, req)
+
+    expect(mockUsersService.getAddress).not.toHaveBeenCalled()
+    expect(mockCreateOrderUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 9,
+      currency: 'USD',
+      cartId: 555,
+      address: undefined,
+    }))
+    expect(res.id).toBe('order_y')
+  })
+
+  it('POST /checkout with invalid saved id returns 400', async () => {
+    const dto: any = { cartId: 777, currency: 'USD', shippingAddressId: 'addr_missing' }
+    const req: any = { user: { id: 10 } }
+
+    mockFeatureFlags.isEnabled.mockReturnValue(true)
+    mockUsersService.getAddress.mockResolvedValue(null)
+
+    await expect(controller.checkout(dto, req)).rejects.toThrow(BadRequestException)
   })
 
   it('GET /:id returns order details (legacy shape)', async () => {

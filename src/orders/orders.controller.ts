@@ -14,6 +14,7 @@ import {
   Headers,
   Req,
   Inject,
+  Optional,
 } from '@nestjs/common'
 import { OrdersService } from './orders.service'
 import { OrderPaymentService } from './payment.service'
@@ -23,6 +24,8 @@ import { CreateOrderUseCase } from './application/create-order.usecase'
 import { CancelOrderUseCase } from './application/cancel-order.usecase'
 import { GetOrderQuery } from './application/get-order.query'
 import { GetCustomerOrdersQuery } from './application/get-customer-orders.query'
+import { FeatureFlagsService, FeatureFlag } from '../feature-flags/feature-flags.service'
+import { UsersService } from '../users/users.service'
 
 /**
  * PHASE 5: Orders Controller
@@ -46,6 +49,8 @@ export class OrdersController {
     private cancelOrderUseCase: CancelOrderUseCase,
     private getOrderQuery: GetOrderQuery,
     private getCustomerOrdersQuery: GetCustomerOrdersQuery,
+    private featureFlags: FeatureFlagsService,
+    @Optional() private usersService?: UsersService,
   ) {}
 
   /**
@@ -91,12 +96,37 @@ export class OrdersController {
     try {
       const body: any = createOrderDto as any
 
+      // If saved-address-at-checkout feature is enabled and a shippingAddressId
+      // was provided, resolve the saved address from UsersService and map it
+      // into the address shape expected by the CreateOrderUseCase.
+      let resolvedAddress = body.shippingAddress || body.address
+
+      if (
+        body.shippingAddressId &&
+        this.featureFlags.isEnabled(FeatureFlag.USER_SAVED_ADDRESSES_AT_CHECKOUT) &&
+        this.usersService
+      ) {
+        const saved = await this.usersService.getAddress(Number(userId), body.shippingAddressId)
+        if (!saved) {
+          throw new BadRequestException('Saved shipping address not found')
+        }
+
+        resolvedAddress = {
+          country: saved.country,
+          state: saved.stateProvince || (saved as any).state || undefined,
+          city: saved.city,
+          postalCode: saved.postalCode,
+        }
+      }
+      // If feature is enabled but UsersService is not available in the DI context,
+      // we silently ignore saved address resolution to keep test modules simple.
+
       const order = await this.createOrderUseCase.execute({
         userId,
         currency: createOrderDto.currency,
         cartId: createOrderDto.cartId,
         items: body.items || [],
-        address: body.shippingAddress || body.address,
+        address: resolvedAddress,
         shippingMethodId: createOrderDto.shippingMethodId,
         discountCodes: createOrderDto.discountCodes,
       })

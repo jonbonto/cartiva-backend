@@ -12,6 +12,8 @@ import { RemovePaymentMethodUseCase } from './application/use-cases/remove-payme
 import { SetDefaultPaymentMethodUseCase } from './application/use-cases/set-default-payment-method.usecase'
 import { PAYMENT_TOKEN_VALIDATOR } from './domain/payment-token.validator'
 import { StripeTokenValidator } from './adapters/stripe-token.validator'
+import { AddressOwnerGuard } from './guards/address-owner.guard'
+import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
 
 @Module({
   controllers: [UsersController],
@@ -29,6 +31,8 @@ import { StripeTokenValidator } from './adapters/stripe-token.validator'
     { provide: USER_REPOSITORY, useClass: UserRepositoryPrisma },
     // Token validator adapter
     { provide: PAYMENT_TOKEN_VALIDATOR, useClass: StripeTokenValidator },
+    AddressOwnerGuard,
+    PaymentMethodOwnerGuard,
   ],
   exports: [UsersService],
 })

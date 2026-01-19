@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 
 @Injectable()
@@ -16,7 +16,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (!user) {
       this.logger.warn(`[JwtAuthGuard] No user extracted from JWT`, { info })
-      throw new Error('No user extracted from JWT token')
+      throw new UnauthorizedException('No user extracted from JWT token')
     }
 
     this.logger.debug(`[JwtAuthGuard] JWT validated successfully`, {

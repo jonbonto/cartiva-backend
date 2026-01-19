@@ -10,7 +10,10 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:seed": "ts-node prisma/seed.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:performance": "node scripts/perf/run.js",
+    "perf:k6": "k6 run scripts/perf/k6_users_addresses.js",
+    "perf:artillery": "npx artillery run scripts/perf/artillery_users_addresses.yml"
   },
   "dependencies": {
     "@nestjs/bull": "^10.0.1",
@@ -50,6 +53,7 @@
     "@types/jest": "^30.0.0",
     "@types/passport-jwt": "^4.0.1",
     "jest": "^30.2.0",
+    "k6": "^0.0.0",
     "prisma": "^5.0.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",

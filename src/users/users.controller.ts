@@ -14,6 +14,8 @@ import { CreateAddressDto } from './application/dto/create-address.dto'
 import { UpdateAddressDto } from './application/dto/update-address.dto'
 import { AddPaymentMethodDto } from './application/dto/add-payment-method.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
+import { AddressOwnerGuard } from './guards/address-owner.guard'
+import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
 
 @Controller('api/users')
 export class UsersController {
@@ -48,13 +50,13 @@ export class UsersController {
     return await this.usersService.updateAddress(Number(req.user.id), addressId, dto)
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AddressOwnerGuard)
   @Delete('me/addresses/:addressId')
   async deleteAddress(@Req() req: any, @Param('addressId') addressId: string) {
     return await this.usersService.deleteAddress(Number(req.user.id), addressId)
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AddressOwnerGuard)
   @Post('me/addresses/:addressId/default')
   async setDefaultAddress(@Req() req: any, @Param('addressId') addressId: string) {
     return await this.usersService.setDefaultAddress(Number(req.user.id), addressId)
@@ -72,14 +74,13 @@ export class UsersController {
   async listPaymentMethods(@Req() req: any) {
     return await this.usersService.listPaymentMethods(Number(req.user.id))
   }
-
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PaymentMethodOwnerGuard)
   @Delete('me/payment-methods/:methodId')
   async removePaymentMethod(@Req() req: any, @Param('methodId') methodId: string) {
     return await this.usersService.removePaymentMethod(Number(req.user.id), methodId)
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PaymentMethodOwnerGuard)
   @Post('me/payment-methods/:methodId/default')
   async setDefaultPaymentMethod(@Req() req: any, @Param('methodId') methodId: string) {
     return await this.usersService.setDefaultPaymentMethod(Number(req.user.id), methodId)
