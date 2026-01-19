@@ -16,7 +16,7 @@ describe('UsersController (DB integration)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PAYMENT_TOKEN_VALIDATOR)
-      .useValue({ validate: async () => true })
+      .useValue({ validate: async () => ({ valid: true }) })
       .compile()
     app = moduleRef.createNestApplication()
     await app.init()

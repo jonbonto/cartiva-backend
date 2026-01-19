@@ -12,18 +12,18 @@ describe('StripeTokenValidator', () => {
   it('returns false for missing provider or token', async () => {
     const v = new StripeTokenValidator()
     // @ts-ignore
-    expect(await v.validate('', '')).toBe(false)
+    expect((await v.validate('', '')).valid).toBe(false)
     // @ts-ignore
-    expect(await v.validate('stripe', '')).toBe(false)
+    expect((await v.validate('stripe', '')).valid).toBe(false)
     // @ts-ignore
-    expect(await v.validate('', 'pm_123')).toBe(false)
+    expect((await v.validate('', 'pm_123')).valid).toBe(false)
   })
 
   it('falls back to permissive mode when STRIPE_SECRET_KEY not set', async () => {
     delete process.env.STRIPE_SECRET_KEY
     const v = new StripeTokenValidator()
     // valid provider and token but no key -> permissive true
-    expect(await v.validate('stripe', 'pm_123')).toBe(true)
+    expect((await v.validate('stripe', 'pm_123')).valid).toBe(true)
   })
 
   it('uses Stripe SDK when key configured and validate succeeds', async () => {
@@ -32,7 +32,7 @@ describe('StripeTokenValidator', () => {
     ;(Stripe as unknown as jest.Mock).mockImplementation(() => ({ paymentMethods: { retrieve } }))
 
     const v = new StripeTokenValidator()
-    expect(await v.validate('stripe', 'pm_abc')).toBe(true)
+    expect((await v.validate('stripe', 'pm_abc')).valid).toBe(true)
     expect(retrieve).toHaveBeenCalledWith('pm_abc')
   })
 
@@ -42,6 +42,6 @@ describe('StripeTokenValidator', () => {
     ;(Stripe as unknown as jest.Mock).mockImplementation(() => ({ paymentMethods: { retrieve } }))
 
     const v = new StripeTokenValidator()
-    expect(await v.validate('stripe', 'pm_missing')).toBe(false)
+    expect((await v.validate('stripe', 'pm_missing')).valid).toBe(false)
   })
 })

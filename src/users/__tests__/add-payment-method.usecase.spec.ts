@@ -13,7 +13,7 @@ describe('AddPaymentMethodUseCase', () => {
       listPaymentMethods: jest.fn().mockResolvedValue([]),
       createPaymentMethod: jest.fn().mockImplementation((m) => Promise.resolve(m)),
     }
-    validator = { validate: jest.fn().mockResolvedValue(true) }
+    validator = { validate: jest.fn().mockResolvedValue({ valid: true }) }
 
     const module = await Test.createTestingModule({
       providers: [
@@ -31,12 +31,12 @@ describe('AddPaymentMethodUseCase', () => {
   })
 
   it('throws when token invalid', async () => {
-    validator.validate.mockResolvedValue(false)
+    validator.validate.mockResolvedValue({ valid: false })
     await expect(usecase.execute(1, { provider: 'stripe', providerTokenId: 'pm_x' } as any)).rejects.toThrow()
   })
 
   it('creates payment method and sets default when none exist', async () => {
-    validator.validate.mockResolvedValue(true)
+    validator.validate.mockResolvedValue({ valid: true })
     repo.listPaymentMethods.mockResolvedValue([])
 
     const result = await usecase.execute(1, { provider: 'stripe', providerTokenId: 'pm_ok' } as any)

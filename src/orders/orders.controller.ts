@@ -14,7 +14,6 @@ import {
   Headers,
   Req,
   Inject,
-  Optional,
 } from '@nestjs/common'
 import { OrdersService } from './orders.service'
 import { OrderPaymentService } from './payment.service'
@@ -50,7 +49,7 @@ export class OrdersController {
     private getOrderQuery: GetOrderQuery,
     private getCustomerOrdersQuery: GetCustomerOrdersQuery,
     private featureFlags: FeatureFlagsService,
-    @Optional() private usersService?: UsersService,
+    private usersService: UsersService,
   ) {}
 
   /**
@@ -209,6 +208,7 @@ export class OrdersController {
    * }
    */
   @Post(':id/payment')
+  @UseGuards(JwtAuthGuard)
   async createPayment(
     @Param('id') orderId: string,
     @Body() body: { provider: string; paymentMethodId?: string },

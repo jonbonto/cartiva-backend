@@ -105,8 +105,10 @@ export class OrderPaymentService {
     // 5. Convert DB order to domain type
     const orderDomain = this.convertDbOrderToDomain(order)
 
-    // 6. Create payment intent with provider
+    // 6. Create payment intent with provider. If provider fails in non-production,
+    // attempt to fallback to the mock provider to keep local/dev/test flows working.
     let paymentIntent: PaymentIntent
+    let usedProviderName = providerName
     try {
       paymentIntent = await provider.createPayment(orderDomain, options)
       this.logger.log(
@@ -114,25 +116,47 @@ export class OrderPaymentService {
       )
     } catch (error) {
       this.logger.error(
-        `Failed to create payment intent: ${error.message}`,
+        `Failed to create payment intent with ${providerName}: ${error.message}`,
         error.stack
       )
-      throw new InternalServerErrorException(
-        `Payment provider error: ${error.message}`
-      )
+
+      // Try to fall back to mock provider when available and not in production
+      if (process.env.NODE_ENV !== 'production' && this.paymentProviderRegistry.hasProvider('mock')) {
+        this.logger.warn(`Falling back to mock payment provider for order ${orderId}`)
+        const mockProvider = this.paymentProviderRegistry.getProvider('mock')
+        try {
+          paymentIntent = await mockProvider.createPayment(orderDomain, options)
+          usedProviderName = 'mock'
+          this.logger.log(
+            `Mock payment intent created: ${paymentIntent.id} for order ${orderId}`
+          )
+        } catch (mockErr) {
+          this.logger.error(
+            `Mock provider also failed: ${mockErr.message}`,
+            mockErr.stack
+          )
+          throw new InternalServerErrorException(
+            `Payment provider error: ${error.message}`
+          )
+        }
+      } else {
+        throw new InternalServerErrorException(
+          `Payment provider error: ${error.message}`
+        )
+      }
     }
 
     // 7. Store payment record
     try {
-      await this.prisma.payment.create({
-        data: {
-          orderId,
-          provider: providerName,
-          providerPaymentId: paymentIntent.id,
-          status: paymentIntent.status,
-          idempotencyKey: this.generateIdempotencyKey(orderId, providerName),
-        },
-      })
+    await this.prisma.payment.create({
+      data: {
+        orderId,
+        provider: usedProviderName,
+        providerPaymentId: paymentIntent.id,
+        status: paymentIntent.status,
+        idempotencyKey: this.generateIdempotencyKey(orderId, usedProviderName),
+      },
+    })
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to store payment record: ${error.message}`

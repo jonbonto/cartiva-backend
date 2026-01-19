@@ -16,12 +16,26 @@ export class AddPaymentMethodUseCase {
       throw new BadRequestException('provider and providerTokenId are required')
     }
 
-    const valid = await this.tokenValidator.validate(dto.provider, dto.providerTokenId)
-    if (!valid) {
+    const validation = await this.tokenValidator.validate(dto.provider, dto.providerTokenId)
+    if (!validation || !validation.valid) {
       throw new BadRequestException('Invalid provider token')
     }
 
-    const method = UserPaymentMethod.create(dto as any, userId)
+    // Prefer provider-supplied metadata (brand, last4Digits, expiry, cardholderName)
+    const providerMeta = validation.metadata || {}
+    const createDto: any = {
+      provider: dto.provider,
+      providerTokenId: dto.providerTokenId,
+      type: dto.type || 'card',
+      brand: providerMeta.brand || dto.brand,
+      last4Digits: providerMeta.last4Digits || dto.last4Digits,
+      expiryMonth: providerMeta.expiryMonth || dto.expiryMonth,
+      expiryYear: providerMeta.expiryYear || dto.expiryYear,
+      cardholderName: providerMeta.cardholderName || dto.cardholderName,
+      label: dto.label,
+    }
+
+    const method = UserPaymentMethod.create(createDto, userId)
 
     const existing = await this.userRepository.listPaymentMethods(userId)
     if (existing.length === 0) method.setAsDefault()

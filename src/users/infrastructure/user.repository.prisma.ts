@@ -138,7 +138,7 @@ export class UserRepositoryPrisma implements UserRepository {
   async softDeletePaymentMethod(methodId: string): Promise<void> {
     await this.prisma.userPaymentMethod.update({
       where: { id: methodId },
-      data: { isActive: false, deletedAt: new Date() },
+      data: { isActive: false, deletedAt: new Date(), isDefault: false },
     })
   }
 

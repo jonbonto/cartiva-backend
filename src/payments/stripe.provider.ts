@@ -76,9 +76,10 @@ export class StripePaymentProvider implements PaymentProvider {
         intentParams.confirm = true
       } else {
         // Default: do not confirm immediately and allow automatic methods
+        // Prevent redirect-based payment methods which require a return_url
         intentParams.confirm = false
-        intentParams.automatic_payment_methods = { enabled: true }
       }
+      intentParams.automatic_payment_methods = { enabled: true, allow_redirects: 'never' }
 
       // Create payment intent with idempotency key (order ID)
       const intent = await this.stripe.paymentIntents.create(intentParams, {

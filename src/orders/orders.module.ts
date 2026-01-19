@@ -10,6 +10,7 @@ import { ProductsModule } from '../products/products.module'
 import { PaymentsModule } from '../payments/payments.module'
 import { EmailModule } from '../email/email.module'
 import { DomainServicesModule } from '../services/phase6.module'
+import { UsersModule } from '../users/users.module'
 import { OrderRepositoryPrisma } from './infrastructure/order.repository.prisma'
 import { CreateOrderUseCase } from './application/create-order.usecase'
 import { CancelOrderUseCase } from './application/cancel-order.usecase'
@@ -18,7 +19,7 @@ import { GetCustomerOrdersQuery } from './application/get-customer-orders.query'
 import { ORDER_REPOSITORY } from './domain/order.repository'
 
 @Module({
-  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, DomainServicesModule],
+  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, DomainServicesModule, UsersModule],
   providers: [
     OrdersService,
     OrderPaymentService,
