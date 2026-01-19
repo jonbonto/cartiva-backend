@@ -246,6 +246,56 @@ export class EmailService {
   }
 
   /**
+   * Send password reset email with links to confirm
+   */
+  async sendPasswordResetEmail(
+    recipientEmail: string,
+    backendResetUrl: string,
+    frontendResetUrl?: string,
+  ): Promise<void> {
+    const context: EmailVerificationContext = {
+      backendConfirmUrl: backendResetUrl,
+      frontendConfirmUrl: frontendResetUrl || backendResetUrl,
+      companyName: process.env.COMPANY_NAME || 'E-Commerce Store',
+      currentYear: new Date().getFullYear(),
+    }
+
+    const html = `
+      <p>Click the link below to reset your password:</p>
+      <p><a href="${context.frontendConfirmUrl}">Reset via frontend</a></p>
+      <p>Or reset directly via API: <a href="${context.backendConfirmUrl}">Reset password</a></p>
+      <p>If you did not request this change, ignore this email.</p>
+      <p>&mdash; ${context.companyName} (${context.currentYear})</p>
+    `
+
+    try {
+      if (!this.isValidEmail(recipientEmail)) {
+        this.logger.warn(`Skipped password reset email to invalid address: ${recipientEmail}`)
+        return
+      }
+
+      if (!this.isProduction) {
+        this.logger.log(`[PASSWORD RESET] ${recipientEmail} - Reset URL: ${context.backendConfirmUrl}`)
+        this.logger.debug(`[PASSWORD RESET HTML]\n${html}`)
+        return
+      }
+
+      const message = {
+        to: recipientEmail,
+        from: this.fromEmail,
+        subject: 'Reset your password',
+        html,
+        replyTo: process.env.SUPPORT_EMAIL || this.fromEmail,
+      }
+
+      const response = await sgMail.send(message)
+      this.logger.log(`Password reset email sent to ${recipientEmail}`)
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${recipientEmail}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
    * Generic email sender with template support
    *
    * @param to Recipient email address

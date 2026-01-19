@@ -17,6 +17,8 @@ import { UpdateProfileDto } from './application/dto/update-profile.dto'
 import { RequestEmailChangeDto } from './application/dto/request-email-change.dto'
 import { ConfirmEmailChangeDto } from './application/dto/confirm-email-change.dto'
 import { ChangePasswordDto } from './application/dto/change-password.dto'
+import { RequestPasswordResetDto } from './application/dto/request-password-reset.dto'
+import { ConfirmPasswordResetDto } from './application/dto/confirm-password-reset.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AddressOwnerGuard } from './guards/address-owner.guard'
 import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
@@ -42,6 +44,17 @@ export class UsersController {
   @Post('me/change-password')
   async changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
     return await this.usersService.changePassword(Number(req.user.id), dto.currentPassword, dto.newPassword)
+  }
+
+  // --- Password reset (forgot password) ---
+  @Post('password-reset')
+  async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
+    return await this.usersService.requestPasswordReset(dto.email)
+  }
+
+  @Post('password-reset/confirm')
+  async confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
+    return await this.usersService.confirmPasswordReset(dto.token, dto.newPassword)
   }
 
   @UseGuards(JwtAuthGuard)

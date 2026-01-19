@@ -143,4 +143,49 @@ export class UsersService {
 
     return { ok: true }
   }
+
+  // --- Password reset (forgot password) ---
+  async requestPasswordReset(email: string) {
+    if (!email || typeof email !== 'string') throw new BadRequestException('email is required')
+
+    // Find user by email but don't reveal existence to caller
+    const user = await this.userRepository.getUserByEmail(email)
+    if (!user) {
+      // Log and return ok to avoid leaking registered emails
+      // eslint-disable-next-line no-console
+      console.log(`[PASSWORD RESET] requested for unknown email: ${email}`)
+      return { ok: true }
+    }
+
+    const secret = process.env.PASSWORD_RESET_TOKEN_SECRET || process.env.EMAIL_CHANGE_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me'
+    const token = jwt.sign({ sub: user.id }, secret, { expiresIn: '1h' })
+
+    const backendResetUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/users/password-reset/confirm?token=${token}`
+    const frontendResetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/password-reset/confirm?token=${token}`
+
+    if (this.emailService) {
+      await this.emailService.sendPasswordResetEmail(email, backendResetUrl, frontendResetUrl)
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(`[PASSWORD RESET] ${email} - ${backendResetUrl}`)
+    }
+
+    return { ok: true }
+  }
+
+  async confirmPasswordReset(token: string, newPassword: string) {
+    const secret = process.env.PASSWORD_RESET_TOKEN_SECRET || process.env.EMAIL_CHANGE_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me'
+    try {
+      const payload = jwt.verify(token, secret) as any
+      const tokenUserId = payload.sub
+      if (!tokenUserId) throw new Error('invalid token')
+
+      const hashed = await bcrypt.hash(newPassword, 10)
+      await this.userRepository.updatePassword(Number(tokenUserId), hashed)
+
+      return { ok: true }
+    } catch (err) {
+      throw new BadRequestException('Invalid or expired token')
+    }
+  }
 }

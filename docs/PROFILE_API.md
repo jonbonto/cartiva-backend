@@ -32,6 +32,20 @@ Authentication: All endpoints require a valid JWT in the `Authorization: Bearer 
   - Response: 200
     - { ok: true }
 
+Password reset (forgot password):
+
+- POST /api/users/password-reset
+  - Description: Request a password reset email. Does not reveal whether the email is registered.
+  - Request body: { email: string }
+  - Response: 200
+    - { ok: true }
+
+- POST /api/users/password-reset/confirm
+  - Description: Confirm a password reset using a signed token (sent by email) and set a new password.
+  - Request body: { token: string, newPassword: string }
+  - Response: 200
+    - { ok: true }
+
 Notes:
 - Email changes are allowed but should be validated by client workflow (verification) in production.
 - Password changes are not handled via this endpoint; use dedicated change-password flow.

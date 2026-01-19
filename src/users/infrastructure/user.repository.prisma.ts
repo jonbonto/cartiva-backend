@@ -171,6 +171,13 @@ export class UserRepositoryPrisma implements UserRepository {
     return rest
   }
 
+  async getUserByEmail(email: string): Promise<any | null> {
+    const user = await this.prisma.user.findUnique({ where: { email } })
+    if (!user) return null
+    const { password, ...rest } = user as any
+    return rest
+  }
+
   async getUserWithPassword(userId: number): Promise<any | null> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } })
     if (!user) return null

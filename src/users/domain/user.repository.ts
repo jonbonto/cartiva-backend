@@ -23,6 +23,7 @@ export interface UserRepository {
 
   // User profile
   getUserById(userId: number): Promise<any | null>
+  getUserByEmail(email: string): Promise<any | null>
   updateUser(userId: number, data: { name?: string; email?: string }): Promise<any>
   // Password management
   getUserWithPassword(userId: number): Promise<any | null>
