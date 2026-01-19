@@ -171,6 +171,12 @@ export class UserRepositoryPrisma implements UserRepository {
     return rest
   }
 
+  async getUserWithPassword(userId: number): Promise<any | null> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return null
+    return user
+  }
+
   async updateUser(userId: number, data: { name?: string; email?: string }): Promise<any> {
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -181,5 +187,12 @@ export class UserRepositoryPrisma implements UserRepository {
     })
     const { password, ...rest } = updated as any
     return rest
+  }
+
+  async updatePassword(userId: number, hashedPassword: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    })
   }
 }

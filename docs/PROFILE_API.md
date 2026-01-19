@@ -26,6 +26,12 @@ Authentication: All endpoints require a valid JWT in the `Authorization: Bearer 
   - Response: 200
     - Updated user object (same shape as GET)
 
+- POST /api/users/me/change-password
+  - Description: Change the authenticated user's password. Requires the current password for verification.
+  - Request body: { currentPassword: string, newPassword: string }
+  - Response: 200
+    - { ok: true }
+
 Notes:
 - Email changes are allowed but should be validated by client workflow (verification) in production.
 - Password changes are not handled via this endpoint; use dedicated change-password flow.

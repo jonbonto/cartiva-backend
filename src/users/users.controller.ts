@@ -16,6 +16,7 @@ import { AddPaymentMethodDto } from './application/dto/add-payment-method.dto'
 import { UpdateProfileDto } from './application/dto/update-profile.dto'
 import { RequestEmailChangeDto } from './application/dto/request-email-change.dto'
 import { ConfirmEmailChangeDto } from './application/dto/confirm-email-change.dto'
+import { ChangePasswordDto } from './application/dto/change-password.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AddressOwnerGuard } from './guards/address-owner.guard'
 import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
@@ -35,6 +36,12 @@ export class UsersController {
   @Patch('me')
   async updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
     return await this.usersService.updateProfile(Number(req.user.id), dto)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/change-password')
+  async changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
+    return await this.usersService.changePassword(Number(req.user.id), dto.currentPassword, dto.newPassword)
   }
 
   @UseGuards(JwtAuthGuard)

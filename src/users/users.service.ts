@@ -1,5 +1,6 @@
 import { Injectable, Inject, BadRequestException, Optional } from '@nestjs/common'
 import * as jwt from 'jsonwebtoken'
+import * as bcrypt from 'bcrypt'
 import { EmailService } from '../email/email.service'
 import { CreateAddressDto } from './application/dto/create-address.dto'
 import { UpdateAddressDto } from './application/dto/update-address.dto'
@@ -123,5 +124,23 @@ export class UsersService {
     } catch (err) {
       throw new BadRequestException('Invalid or expired token')
     }
+  }
+
+  // --- Password ---
+  async changePassword(userId: number, currentPassword: string, newPassword: string) {
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('currentPassword and newPassword are required')
+    }
+
+    const user = await this.userRepository.getUserWithPassword(userId)
+    if (!user) throw new BadRequestException('User not found')
+
+    const valid = await bcrypt.compare(currentPassword, user.password)
+    if (!valid) throw new BadRequestException('Invalid current password')
+
+    const hashed = await bcrypt.hash(newPassword, 10)
+    await this.userRepository.updatePassword(userId, hashed)
+
+    return { ok: true }
   }
 }
