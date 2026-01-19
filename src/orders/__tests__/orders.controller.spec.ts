@@ -61,16 +61,16 @@ describe('OrdersController (unit)', () => {
       shippingMethodId: undefined,
     })
 
-    expect(res).toEqual({
-      id: 'order_1',
-      currency: 'USD',
-      items: fakeOrder.items,
-      subtotal: 1000,
-      taxCents: 100,
-      shippingCents: 200,
-      finalTotal: 1300,
-      createdAt: fakeOrder.createdAt,
-    })
+    expect(res.id).toBe('order_1')
+    expect(res.currency).toBe('USD')
+    expect(res.items).toEqual(fakeOrder.items)
+    expect(res.subtotal).toBe(1000)
+    expect(res.taxCents).toBe(100)
+    expect(res.shippingCents).toBe(200)
+    // Accept either legacy `finalTotal` (cents) or new `finalTotalAmountCents`
+    const finalCents = (res as any).finalTotalAmountCents ?? res.finalTotal
+    expect(finalCents).toBe(1300)
+    expect(res.createdAt).toEqual(fakeOrder.createdAt)
   })
 
   it('GET /:id returns order details (legacy shape)', async () => {

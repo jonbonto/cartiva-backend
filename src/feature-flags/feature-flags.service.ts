@@ -18,6 +18,11 @@ export enum FeatureFlag {
   PAYMENT_STRIPE_V2 = 'payment_stripe_v2',
   ANALYTICS_REALTIME = 'analytics_realtime',
   EMAIL_QUEUE_PRIORITY = 'email_queue_priority',
+  
+  // User Shipping Address & Payment Method (Phase 1)
+  USER_SHIPPING_ADDRESS = 'user_shipping_address',
+  USER_PAYMENT_METHOD = 'user_payment_method',
+  USER_SAVED_ADDRESSES_AT_CHECKOUT = 'user_saved_addresses_at_checkout',
 }
 
 /**

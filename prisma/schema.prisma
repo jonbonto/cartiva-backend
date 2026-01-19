@@ -63,6 +63,11 @@ model User {
   role      String   @default("user")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+   /// NEW: Address & Payment Management
+  shippingAddresses  UserShippingAddress[]  @relation("UserShippingAddresses")
+  paymentMethods     UserPaymentMethod[]    @relation("UserPaymentMethods")
+
   auditLogs AdminAuditLog[]
   orders    Order[]
 }
@@ -437,4 +442,82 @@ model ShippingAddress {
   updatedAt       DateTime @updatedAt
   
   @@index([orderId])
+}
+
+model UserShippingAddress {
+  id              String   @id @default(cuid())
+  
+  /// User who owns this address
+  userId          Int
+  user            User     @relation(name: "UserShippingAddresses", fields: [userId], references: [id], onDelete: Cascade)
+  
+  /// Address Details
+  label           String?  /// "Home", "Work", "Mom's Place", etc.
+  fullName        String
+  streetLine1     String
+  streetLine2     String?
+  city            String
+  stateProvince   String
+  postalCode      String
+  country         String   /// ISO 3166-1 alpha-2
+  phoneNumber     String?
+  
+  /// Metadata
+  isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  
+  /// Audit Trail
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  
+  @@index([userId])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@unique([userId, isDefault])  /// Only one default per user
+}
+
+model UserPaymentMethod {
+  id              String   @id @default(cuid())
+  
+  /// User who owns this payment method
+  userId          Int
+  user            User     @relation(name: "UserPaymentMethods", fields: [userId], references: [id], onDelete: Cascade)
+  
+  /// Payment Provider & Token
+  provider        String   /// "stripe", "midtrans", "paypal", etc.
+  providerTokenId String   /// External token (e.g., "pm_1234...", never expose to user)
+  
+  /// Metadata (for display, not for payment)
+  type            String   /// "card", "bank_transfer", "e_wallet", etc.
+  brand           String?  /// "visa", "mastercard", "gopay", etc.
+  last4Digits     String?  /// "4242" for masked display
+  expiryMonth     Int?
+  expiryYear      Int?
+  cardholderName  String?
+  
+  /// Billing Address (optional, provider-specific)
+  billingStreetLine1 String?
+  billingStreetLine2 String?
+  billingCity        String?
+  billingStateProvince String?
+  billingPostalCode   String?
+  billingCountry      String?
+  
+  /// User-facing label
+  label           String?  /// "My Visa", "Backup Card", etc.
+  
+  /// Metadata
+  isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)  /// Can disable without deletion
+  
+  /// Audit Trail
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  
+  @@index([userId])
+  @@index([provider])
+  @@index([isActive])
+  @@unique([userId, isDefault])  /// Only one default per user
 }
