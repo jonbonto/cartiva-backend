@@ -6,69 +6,82 @@ import {
   Delete,
   Param,
   Body,
+  UseGuards,
+  Req,
 } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { CreateAddressDto } from './application/dto/create-address.dto'
 import { UpdateAddressDto } from './application/dto/update-address.dto'
 import { AddPaymentMethodDto } from './application/dto/add-payment-method.dto'
+import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 
 @Controller('api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // --- Shipping addresses ---
-  @Post(':userId/addresses')
-  async createAddress(@Param('userId') userId: string, @Body() dto: CreateAddressDto) {
-    return await this.usersService.createAddress(Number(userId), dto)
+  @UseGuards(JwtAuthGuard)
+  @Post('me/addresses')
+  async createAddress(@Req() req: any, @Body() dto: CreateAddressDto) {
+    return await this.usersService.createAddress(Number(req.user.id), dto)
   }
 
-  @Get(':userId/addresses')
-  async listAddresses(@Param('userId') userId: string) {
-    return await this.usersService.listAddresses(Number(userId))
+  @UseGuards(JwtAuthGuard)
+  @Get('me/addresses')
+  async listAddresses(@Req() req: any) {
+    return await this.usersService.listAddresses(Number(req.user.id))
   }
 
-  @Get(':userId/addresses/:addressId')
-  async getAddress(@Param('userId') userId: string, @Param('addressId') addressId: string) {
-    return await this.usersService.getAddress(Number(userId), addressId)
+  @UseGuards(JwtAuthGuard)
+  @Get('me/addresses/:addressId')
+  async getAddress(@Req() req: any, @Param('addressId') addressId: string) {
+    return await this.usersService.getAddress(Number(req.user.id), addressId)
   }
 
-  @Patch(':userId/addresses/:addressId')
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/addresses/:addressId')
   async updateAddress(
-    @Param('userId') userId: string,
+    @Req() req: any,
     @Param('addressId') addressId: string,
     @Body() dto: UpdateAddressDto,
   ) {
-    return await this.usersService.updateAddress(Number(userId), addressId, dto)
+    return await this.usersService.updateAddress(Number(req.user.id), addressId, dto)
   }
 
-  @Delete(':userId/addresses/:addressId')
-  async deleteAddress(@Param('userId') userId: string, @Param('addressId') addressId: string) {
-    return await this.usersService.deleteAddress(Number(userId), addressId)
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/addresses/:addressId')
+  async deleteAddress(@Req() req: any, @Param('addressId') addressId: string) {
+    return await this.usersService.deleteAddress(Number(req.user.id), addressId)
   }
 
-  @Post(':userId/addresses/:addressId/default')
-  async setDefaultAddress(@Param('userId') userId: string, @Param('addressId') addressId: string) {
-    return await this.usersService.setDefaultAddress(Number(userId), addressId)
+  @UseGuards(JwtAuthGuard)
+  @Post('me/addresses/:addressId/default')
+  async setDefaultAddress(@Req() req: any, @Param('addressId') addressId: string) {
+    return await this.usersService.setDefaultAddress(Number(req.user.id), addressId)
   }
 
   // --- Payment methods ---
-  @Post(':userId/payment-methods')
-  async addPaymentMethod(@Param('userId') userId: string, @Body() dto: AddPaymentMethodDto) {
-    return await this.usersService.addPaymentMethod(Number(userId), dto)
+  @UseGuards(JwtAuthGuard)
+  @Post('me/payment-methods')
+  async addPaymentMethod(@Req() req: any, @Body() dto: AddPaymentMethodDto) {
+    return await this.usersService.addPaymentMethod(Number(req.user.id), dto)
   }
 
-  @Get(':userId/payment-methods')
-  async listPaymentMethods(@Param('userId') userId: string) {
-    return await this.usersService.listPaymentMethods(Number(userId))
+  @UseGuards(JwtAuthGuard)
+  @Get('me/payment-methods')
+  async listPaymentMethods(@Req() req: any) {
+    return await this.usersService.listPaymentMethods(Number(req.user.id))
   }
 
-  @Delete(':userId/payment-methods/:methodId')
-  async removePaymentMethod(@Param('userId') userId: string, @Param('methodId') methodId: string) {
-    return await this.usersService.removePaymentMethod(Number(userId), methodId)
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/payment-methods/:methodId')
+  async removePaymentMethod(@Req() req: any, @Param('methodId') methodId: string) {
+    return await this.usersService.removePaymentMethod(Number(req.user.id), methodId)
   }
 
-  @Post(':userId/payment-methods/:methodId/default')
-  async setDefaultPaymentMethod(@Param('userId') userId: string, @Param('methodId') methodId: string) {
-    return await this.usersService.setDefaultPaymentMethod(Number(userId), methodId)
+  @UseGuards(JwtAuthGuard)
+  @Post('me/payment-methods/:methodId/default')
+  async setDefaultPaymentMethod(@Req() req: any, @Param('methodId') methodId: string) {
+    return await this.usersService.setDefaultPaymentMethod(Number(req.user.id), methodId)
   }
 }
