@@ -40,6 +40,13 @@ interface EmailTemplateContext {
  */
 type EmailTemplate = 'order-confirmation' | 'payment-success' | 'payment-failed'
 
+type EmailVerificationContext = {
+  backendConfirmUrl: string
+  frontendConfirmUrl: string
+  companyName: string
+  currentYear: number
+}
+
 /**
  * PHASE 6: SendGrid Email Service
  *
@@ -185,6 +192,57 @@ export class EmailService {
       `Payment Failed #${orderId}`,
       context
     )
+  }
+
+  /**
+   * Send account email verification for email-change flow
+   */
+  async sendVerificationEmail(
+    recipientEmail: string,
+    backendConfirmUrl: string,
+    frontendConfirmUrl?: string,
+  ): Promise<void> {
+    const context: EmailVerificationContext = {
+      backendConfirmUrl,
+      frontendConfirmUrl: frontendConfirmUrl || backendConfirmUrl,
+      companyName: process.env.COMPANY_NAME || 'E-Commerce Store',
+      currentYear: new Date().getFullYear(),
+    }
+
+    // Simple HTML for verification email
+    const html = `
+      <p>Click the link below to confirm your email change:</p>
+      <p><a href="${context.frontendConfirmUrl}">Confirm via frontend</a></p>
+      <p>Or confirm directly via API: <a href="${context.backendConfirmUrl}">Confirm email</a></p>
+      <p>If you did not request this change, ignore this email.</p>
+      <p>&mdash; ${context.companyName} (${context.currentYear})</p>
+    `
+
+    try {
+      if (!this.isValidEmail(recipientEmail)) {
+        this.logger.warn(`Skipped verification email to invalid address: ${recipientEmail}`)
+        return
+      }
+
+      if (!this.isProduction) {
+        this.logger.log(`[EMAIL VERIFICATION] ${recipientEmail} - Verify URL: ${context.backendConfirmUrl}`)
+        this.logger.debug(`[EMAIL HTML]\n${html}`)
+        return
+      }
+
+      const message = {
+        to: recipientEmail,
+        from: this.fromEmail,
+        subject: 'Confirm your email change',
+        html,
+        replyTo: process.env.SUPPORT_EMAIL || this.fromEmail,
+      }
+
+      const response = await sgMail.send(message)
+      this.logger.log(`Verification email sent to ${recipientEmail}`)
+    } catch (error) {
+      this.logger.error(`Failed to send verification email to ${recipientEmail}: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**

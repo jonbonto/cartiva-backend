@@ -161,4 +161,25 @@ export class UserRepositoryPrisma implements UserRepository {
     })
     return new UserPaymentMethod(updated)
   }
+
+  // --- USER PROFILE ---
+  async getUserById(userId: number): Promise<any | null> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return null
+    // Exclude sensitive fields like password
+    const { password, ...rest } = user as any
+    return rest
+  }
+
+  async updateUser(userId: number, data: { name?: string; email?: string }): Promise<any> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.email !== undefined ? { email: data.email } : {}),
+      },
+    })
+    const { password, ...rest } = updated as any
+    return rest
+  }
 }

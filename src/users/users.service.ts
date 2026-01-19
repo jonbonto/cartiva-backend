@@ -1,4 +1,6 @@
-import { Injectable, Inject } from '@nestjs/common'
+import { Injectable, Inject, BadRequestException, Optional } from '@nestjs/common'
+import * as jwt from 'jsonwebtoken'
+import { EmailService } from '../email/email.service'
 import { CreateAddressDto } from './application/dto/create-address.dto'
 import { UpdateAddressDto } from './application/dto/update-address.dto'
 import { AddPaymentMethodDto } from './application/dto/add-payment-method.dto'
@@ -22,6 +24,7 @@ export class UsersService {
     private readonly removePaymentMethodUseCase: RemovePaymentMethodUseCase,
     private readonly setDefaultPaymentMethodUseCase: SetDefaultPaymentMethodUseCase,
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
+    @Optional() private readonly emailService?: EmailService,
   ) {}
 
   createAddress(userId: number, dto: CreateAddressDto) {
@@ -66,5 +69,59 @@ export class UsersService {
 
   setDefaultPaymentMethod(userId: number, methodId: string) {
     return this.setDefaultPaymentMethodUseCase.execute(userId, methodId)
+  }
+
+  // --- Profile ---
+  async getProfile(userId: number) {
+    return await this.userRepository.getUserById(userId)
+  }
+
+  async updateProfile(userId: number, data: { name?: string; email?: string }) {
+    return await this.userRepository.updateUser(userId, data)
+  }
+
+  async requestEmailChange(userId: number, newEmail: string) {
+    if (!newEmail || typeof newEmail !== 'string') {
+      throw new BadRequestException('email is required')
+    }
+
+    // Create a signed token containing the userId and newEmail
+    const secret = process.env.EMAIL_CHANGE_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me'
+    const token = jwt.sign({ sub: userId, newEmail }, secret, { expiresIn: '1h' })
+
+    const backendConfirmUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/users/me/email/confirm?token=${token}`
+    const frontendConfirmUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/verify-email?token=${token}`
+
+    // Send verification email
+    if (this.emailService) {
+      await this.emailService.sendVerificationEmail(newEmail, backendConfirmUrl, frontendConfirmUrl)
+    } else {
+      // In test/dev without EmailService injected, log the URL
+      // eslint-disable-next-line no-console
+      console.log(`[EMAIL VERIFICATION] ${newEmail} - ${backendConfirmUrl}`)
+    }
+
+    return { ok: true }
+  }
+
+  async confirmEmailChange(userId: number | null, token: string) {
+    const secret = process.env.EMAIL_CHANGE_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me'
+    try {
+      const payload = jwt.verify(token, secret) as any
+      const tokenUserId = payload.sub
+      const newEmail = payload.newEmail
+      if (!tokenUserId || !newEmail) throw new Error('invalid token')
+
+      // If caller supplied a userId (authenticated flow), enforce it matches token
+      if (userId && Number(userId) !== Number(tokenUserId)) {
+        throw new BadRequestException('Token does not match authenticated user')
+      }
+
+      // Update user's email
+      const updated = await this.userRepository.updateUser(Number(tokenUserId), { email: newEmail })
+      return updated
+    } catch (err) {
+      throw new BadRequestException('Invalid or expired token')
+    }
   }
 }

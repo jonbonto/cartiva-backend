@@ -14,8 +14,10 @@ import { PAYMENT_TOKEN_VALIDATOR } from './domain/payment-token.validator'
 import { StripeTokenValidator } from './adapters/stripe-token.validator'
 import { AddressOwnerGuard } from './guards/address-owner.guard'
 import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
+import { EmailModule } from '../email/email.module'
 
 @Module({
+  imports: [EmailModule],
   controllers: [UsersController],
   providers: [
     UsersService,

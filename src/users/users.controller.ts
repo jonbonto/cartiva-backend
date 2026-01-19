@@ -13,6 +13,9 @@ import { UsersService } from './users.service'
 import { CreateAddressDto } from './application/dto/create-address.dto'
 import { UpdateAddressDto } from './application/dto/update-address.dto'
 import { AddPaymentMethodDto } from './application/dto/add-payment-method.dto'
+import { UpdateProfileDto } from './application/dto/update-profile.dto'
+import { RequestEmailChangeDto } from './application/dto/request-email-change.dto'
+import { ConfirmEmailChangeDto } from './application/dto/confirm-email-change.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt.guard'
 import { AddressOwnerGuard } from './guards/address-owner.guard'
 import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
@@ -20,6 +23,31 @@ import { PaymentMethodOwnerGuard } from './guards/payment-method-owner.guard'
 @Controller('api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  // --- Profile ---
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async getProfile(@Req() req: any) {
+    return await this.usersService.getProfile(Number(req.user.id))
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  async updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
+    return await this.usersService.updateProfile(Number(req.user.id), dto)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/email-change')
+  async requestEmailChange(@Req() req: any, @Body() dto: RequestEmailChangeDto) {
+    return await this.usersService.requestEmailChange(Number(req.user.id), dto.email)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/email/confirm')
+  async confirmEmailChange(@Req() req: any, @Body() dto: ConfirmEmailChangeDto) {
+    return await this.usersService.confirmEmailChange(Number(req.user.id), dto.token)
+  }
 
   // --- Shipping addresses ---
   @UseGuards(JwtAuthGuard)

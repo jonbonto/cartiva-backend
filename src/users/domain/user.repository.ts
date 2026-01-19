@@ -20,6 +20,10 @@ export interface UserRepository {
   updatePaymentMethod(method: UserPaymentMethod): Promise<UserPaymentMethod>
   softDeletePaymentMethod(methodId: string): Promise<void>
   getDefaultPaymentMethod(userId: number): Promise<UserPaymentMethod | null>
+
+  // User profile
+  getUserById(userId: number): Promise<any | null>
+  updateUser(userId: number, data: { name?: string; email?: string }): Promise<any>
 }
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY')
