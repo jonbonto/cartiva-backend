@@ -211,16 +211,54 @@ export class OrdersController {
   @Post(':id/payment')
   async createPayment(
     @Param('id') orderId: string,
-    @Body() body: { provider: string }
+    @Body() body: { provider: string; paymentMethodId?: string },
+    @Request() req: any
   ) {
     if (!body.provider) {
       throw new BadRequestException('provider is required')
     }
 
     try {
+      let options: any = undefined
+
+      // If caller supplied a saved payment method id, resolve it via UsersService
+      if (body.paymentMethodId) {
+        if (!this.usersService) {
+          throw new BadRequestException('UsersService not available to resolve saved payment methods')
+        }
+
+        // Fetch order to verify ownership
+        const order = await this.ordersService.getOrderById(orderId)
+        const orderOwnerId = Number(order.userId)
+
+        const callerUserId = req.user?.id
+        if (!callerUserId) {
+          throw new BadRequestException('Authentication required to use saved payment method')
+        }
+
+        if (Number(callerUserId) !== Number(orderOwnerId)) {
+          throw new BadRequestException('Cannot use saved payment method for another user\'s order')
+        }
+
+        const pm = await this.usersService.getPaymentMethod(orderOwnerId, body.paymentMethodId)
+        if (!pm) {
+          throw new BadRequestException('Payment method not found')
+        }
+
+        if (!(pm as any).canBeUsed?.()) {
+          // If entity doesn't expose canBeUsed, fall back to basic active check
+          if (!(pm as any).isActive) {
+            throw new BadRequestException('Payment method is not active')
+          }
+        }
+
+        options = { paymentMethodToken: pm.providerTokenId }
+      }
+
       const paymentIntent = await this.orderPaymentService.createPayment(
         orderId,
-        body.provider
+        body.provider,
+        options,
       )
 
       return {

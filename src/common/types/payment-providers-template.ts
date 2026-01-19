@@ -26,7 +26,7 @@ export class StripePaymentProviderTemplate implements PaymentProvider {
     this.apiKey = apiKey
   }
 
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     // 1. Validate order
     if (!order.items.length) {
       throw new Error('Order must have items')
@@ -103,7 +103,7 @@ export class MidtransPaymentProviderTemplate implements PaymentProvider {
     this.serverKey = serverKey
   }
 
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     // 1. Create Midtrans transaction
     // 2. Midtrans returns transaction_id and redirect_url
     // 3. Return normalized PaymentIntent
@@ -166,7 +166,7 @@ export class PayPalPaymentProviderTemplate implements PaymentProvider {
     this.clientId = clientId
   }
 
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     // Create PayPal order
     return {
       id: 'paypal_order_xxx',

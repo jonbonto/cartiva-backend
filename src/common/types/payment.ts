@@ -79,7 +79,7 @@ export interface PaymentProvider {
    * @returns PaymentIntent with provider's normalized data
    * @throws Error if order is invalid or provider fails
    */
-  createPayment(order: Order): Promise<PaymentIntent>
+  createPayment(order: Order, options?: any): Promise<PaymentIntent>
 
   /**
    * Verify webhook authenticity

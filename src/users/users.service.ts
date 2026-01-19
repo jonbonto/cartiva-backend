@@ -56,6 +56,10 @@ export class UsersService {
     return this.userRepository.listPaymentMethods(userId)
   }
 
+  getPaymentMethod(userId: number, methodId: string) {
+    return this.userRepository.getPaymentMethod(userId, methodId)
+  }
+
   removePaymentMethod(userId: number, methodId: string) {
     return this.removePaymentMethodUseCase.execute(userId, methodId)
   }

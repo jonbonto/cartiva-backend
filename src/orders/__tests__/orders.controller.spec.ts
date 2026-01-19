@@ -23,6 +23,7 @@ describe('OrdersController (unit)', () => {
   const mockGetCustomerOrdersQuery: any = { execute: jest.fn() }
   const mockFeatureFlags: any = { isEnabled: jest.fn() }
   const mockUsersService: any = { getAddress: jest.fn() }
+  mockUsersService.getPaymentMethod = jest.fn()
 
   beforeEach(() => {
     controller = new OrdersController(
@@ -222,5 +223,61 @@ describe('OrdersController (unit)', () => {
     })
 
     expect(result).toEqual({ success: true, data: resp.orders, pagination: resp.pagination })
+  })
+
+  it('POST /:id/payment with saved paymentMethodId resolves token and forwards to payment service', async () => {
+    const orderId = 'order_pm_1'
+    const req: any = { user: { id: 77 } }
+
+    const dbOrder: any = {
+      id: orderId,
+      userId: '77',
+      currency: 'USD',
+      items: [],
+      finalTotalAmountCents: 1000,
+    }
+
+    mockOrdersService.getOrderById.mockResolvedValue(dbOrder)
+
+    const paymentMethod = {
+      id: 'pm_1',
+      provider: 'stripe',
+      providerTokenId: 'tok_abc',
+      isActive: true,
+      canBeUsed: () => true,
+    }
+
+    mockUsersService.getPaymentMethod.mockResolvedValue(paymentMethod)
+
+    mockOrderPaymentService.createPayment.mockResolvedValue({
+      id: 'pi_1',
+      status: 'pending',
+      amount: { amountCents: 1000, currency: 'USD' },
+    })
+
+    const res = await controller.createPayment(orderId, { provider: 'stripe', paymentMethodId: 'pm_1' }, req)
+
+    expect(mockUsersService.getPaymentMethod).toHaveBeenCalledWith(77, 'pm_1')
+    expect(mockOrderPaymentService.createPayment).toHaveBeenCalledWith(orderId, 'stripe', { paymentMethodToken: 'tok_abc' })
+    expect(res.id).toBe('pi_1')
+  })
+
+  it('POST /:id/payment with saved paymentMethodId by different user returns 400', async () => {
+    const orderId = 'order_pm_2'
+    const req: any = { user: { id: 99 } }
+
+    const dbOrder: any = {
+      id: orderId,
+      userId: '77', // different owner
+      currency: 'USD',
+      items: [],
+      finalTotalAmountCents: 1000,
+    }
+
+    mockOrdersService.getOrderById.mockResolvedValue(dbOrder)
+
+    await expect(controller.createPayment(orderId, { provider: 'stripe', paymentMethodId: 'pm_x' }, req)).rejects.toThrow(BadRequestException)
+    expect(mockUsersService.getPaymentMethod).not.toHaveBeenCalled()
+    expect(mockOrderPaymentService.createPayment).not.toHaveBeenCalled()
   })
 })

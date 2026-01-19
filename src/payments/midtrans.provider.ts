@@ -75,7 +75,7 @@ export class MidtransPaymentProvider implements PaymentProvider {
    * - Returns redirect URL to Midtrans Snap payment page
    * - Stores transaction details for webhook reconciliation
    */
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     try {
       const amountCents = order.finalTotal.amountCents
       const amountInIdr = Math.round(amountCents / 100) // Convert cents to IDR

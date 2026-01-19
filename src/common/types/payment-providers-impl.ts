@@ -23,7 +23,7 @@ import { Money } from './money'
 export class MockPaymentProvider implements PaymentProvider {
   readonly name = 'mock'
 
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     return {
       id: `mock_payment_${Date.now()}`,
       orderId: order.id,
@@ -85,7 +85,7 @@ export class StripePaymentProvider implements PaymentProvider {
   readonly name = 'stripe'
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     // TODO: Implement using stripe library
     // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
     // const intent = await stripe.paymentIntents.create({...})
@@ -130,7 +130,7 @@ export class MidtransPaymentProvider implements PaymentProvider {
   readonly name = 'midtrans'
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     // TODO: Implement using midtrans-client
     throw new Error('Not implemented')
   }

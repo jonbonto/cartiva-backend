@@ -36,6 +36,19 @@ npm run start:dev
 
 Server will run on `http://localhost:3000`
 
+## Perf Runner
+
+This repository includes a lightweight Node perf runner useful for load testing address creation and generating reports.
+
+Usage (dry-run):
+```bash
+node scripts/perf/run.js users.addresses --dry-run --report=both --report-dir=./tmp-perf
+```
+
+For real runs against a staging instance set `BASE_URL`, `PERF_USERS`, `ADDRESSES_PER_USER`, and `PERF_CONCURRENCY` environment variables. Use `--report=json|csv|both` to write results.
+
+Reports are written to `./perf-reports` by default or the directory specified with `--report-dir`.
+
 ## Authentication
 
 ### JWT-based Authentication

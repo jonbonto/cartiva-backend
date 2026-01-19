@@ -833,6 +833,24 @@ npm run migrate:dev
 npm run start:prod -- --env=staging
 ```
 
+#### 5.1.1 Perf Runner (optional)
+
+Use the included Node perf runner to exercise staging with controlled workloads and generate reports.
+
+Example (dry-run, generates JSON + CSV reports in `./tmp-perf`):
+
+```bash
+node scripts/perf/run.js users.addresses --dry-run --report=both --report-dir=./tmp-perf
+```
+
+Example (real run against staging):
+
+```bash
+BASE_URL=http://staging.example.com PERF_USERS=5 ADDRESSES_PER_USER=50 PERF_CONCURRENCY=10 node scripts/perf/run.js users.addresses --report=json --report-dir=./perf-results
+```
+
+Reports are written as `perf-report-<test>-<timestamp>.json` and/or `.csv` in the report directory.
+
 #### 5.2 Test Scenarios
 
 - [ ] Create 50 addresses (performance)
@@ -841,6 +859,10 @@ npm run start:prod -- --env=staging
 - [ ] Delete non-existent address (404)
 - [ ] Use saved address in checkout (integration)
 - [ ] Authorization: Access someone else's address (403)
+
+Notes:
+- For the "Create 50 addresses" scenario you can either reuse the perf-runner above (set `ADDRESSES_PER_USER=50`) or write a small script that calls `POST /api/users/me/addresses` with valid JWTs.
+- When testing "Use saved address in checkout", toggle `FEATURE_USER_SAVED_ADDRESSES_AT_CHECKOUT=true` in staging environment so Orders will resolve `shippingAddressId` references.
 
 #### 5.3 Documentation
 

@@ -71,7 +71,7 @@ export class OrderPaymentService {
    * @param providerName Which payment provider to use
    * @returns PaymentIntent from provider
    */
-  async createPayment(orderId: string, providerName: string): Promise<PaymentIntent> {
+  async createPayment(orderId: string, providerName: string, options?: any): Promise<PaymentIntent> {
     // 1. Verify order exists
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -108,7 +108,7 @@ export class OrderPaymentService {
     // 6. Create payment intent with provider
     let paymentIntent: PaymentIntent
     try {
-      paymentIntent = await provider.createPayment(orderDomain)
+      paymentIntent = await provider.createPayment(orderDomain, options)
       this.logger.log(
         `Payment intent created: ${paymentIntent.id} for order ${orderId} via ${providerName}`
       )

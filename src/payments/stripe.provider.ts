@@ -52,33 +52,38 @@ export class StripePaymentProvider implements PaymentProvider {
    * - Attaches metadata for webhook reconciliation
    * - Returns client secret for frontend embedded checkout
    */
-  async createPayment(order: Order): Promise<PaymentIntent> {
+  async createPayment(order: Order, options?: any): Promise<PaymentIntent> {
     try {
       // Stripe expects amount in cents, currency in lowercase
       const amountCents = order.finalTotal.amountCents
       const currency = order.finalTotal.currency.toLowerCase()
 
-      // Create payment intent with idempotency key (order ID)
-      const intent = await this.stripe.paymentIntents.create(
-        {
-          amount: amountCents,
-          currency,
-          description: `Order ${order.id}`,
-          metadata: {
-            orderId: order.id,
-            userId: order.userId || 'guest',
-            itemCount: order.items.length.toString(),
-          },
-          // Allow manual confirmation for webhook handling
-          confirm: false,
-          automatic_payment_methods: {
-            enabled: true,
-          },
+      // Build params and include optional payment method token if provided
+      const intentParams: any = {
+        amount: amountCents,
+        currency,
+        description: `Order ${order.id}`,
+        metadata: {
+          orderId: order.id,
+          userId: order.userId || 'guest',
+          itemCount: order.items.length.toString(),
         },
-        {
-          idempotencyKey: `order_${order.id}`,
-        }
-      )
+      }
+
+      // If caller provided a saved payment method token, attach it and attempt confirmation
+      if (options && options.paymentMethodToken) {
+        intentParams.payment_method = options.paymentMethodToken
+        intentParams.confirm = true
+      } else {
+        // Default: do not confirm immediately and allow automatic methods
+        intentParams.confirm = false
+        intentParams.automatic_payment_methods = { enabled: true }
+      }
+
+      // Create payment intent with idempotency key (order ID)
+      const intent = await this.stripe.paymentIntents.create(intentParams, {
+        idempotencyKey: `order_${order.id}`,
+      })
 
       this.logger.log(`Payment intent created: ${intent.id} for order ${order.id}`)
 
