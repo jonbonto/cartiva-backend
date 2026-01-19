@@ -70,7 +70,7 @@ export class UserRepositoryPrisma implements UserRepository {
   async softDeleteShippingAddress(addressId: string): Promise<void> {
     await this.prisma.userShippingAddress.update({
       where: { id: addressId },
-      data: { isActive: false, deletedAt: new Date() },
+      data: { isActive: false, deletedAt: new Date(), isDefault: false },
     })
   }
 
