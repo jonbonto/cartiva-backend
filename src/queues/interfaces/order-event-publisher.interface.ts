@@ -22,8 +22,21 @@ export interface OrderCancelledJob {
   userEmail?: string;
 }
 
+/**
+ * Refund event for affiliate commission cancellation
+ */
+export interface RefundProcessedJob {
+  refundId: string;
+  orderId: string;
+  orderItemId?: string; // For partial refunds
+  isPartial: boolean;
+  amountCents: number;
+  reason: string;
+}
+
 export interface OrderEventPublisher {
   orderStatusChanged(data: OrderStatusChangedJob): Promise<void>;
   fulfillmentUpdated(data: FulfillmentUpdatedJob): Promise<void>;
   orderCancelled(data: OrderCancelledJob): Promise<void>;
+  refundProcessed?(data: RefundProcessedJob): Promise<void>; // Optional - for affiliate integration
 }

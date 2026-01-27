@@ -70,6 +70,9 @@ model User {
 
   auditLogs AdminAuditLog[]
   orders    Order[]
+  
+  /// Affiliate profile (if user is an affiliate)
+  affiliate Affiliate?
 }
 
 /// Order — immutable snapshot of a checkout
@@ -520,4 +523,196 @@ model UserPaymentMethod {
   @@index([provider])
   @@index([isActive])
   @@unique([userId, isDefault])  /// Only one default per user
+}
+
+// =============================================================================
+// AFFILIATE SYSTEM — Product-Level Affiliate Program (PHASE 8)
+// =============================================================================
+
+/// Affiliate — Registered affiliate accounts
+/// Tracks affiliates who can earn commissions by referring sales
+model Affiliate {
+  id                    String   @id @default(cuid())
+  
+  /// Link to user account
+  userId                Int      @unique
+  user                  User     @relation(fields: [userId], references: [id])
+  
+  /// Status
+  status                String   @default("active") /// active, suspended, pending_review
+  
+  /// Default commission rate (can be overridden per product)
+  defaultCommissionRate Decimal  @db.Decimal(5, 4) /// e.g., 0.1000 = 10%
+  
+  /// Payment info (for payouts)
+  payoutEmail           String?
+  payoutMethod          String?  /// paypal, bank_transfer, etc.
+  payoutDetails         Json?    /// Provider-specific payout details (encrypted in production)
+  
+  /// Metadata
+  notes                 String?  /// Admin notes
+  
+  /// Audit
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  /// Relations
+  productLinks          AffiliateProductLink[]
+  commissions           AffiliateCommission[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// AffiliateProductLink — Unique referral links per affiliate per product
+/// Each affiliate gets a unique referral code for each product they promote
+model AffiliateProductLink {
+  id              String   @id @default(cuid())
+  
+  /// Link ownership
+  affiliateId     String
+  affiliate       Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  
+  /// Product being promoted
+  productId       Int
+  
+  /// Unique referral code (used in URLs: ?ref={referral_code})
+  referralCode    String   @unique
+  
+  /// Commission rate override (null = use affiliate's default rate)
+  commissionRate  Decimal? @db.Decimal(5, 4)
+  
+  /// Status
+  isActive        Boolean  @default(true)
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  /// Relations
+  clicks          AffiliateClick[]
+  
+  @@unique([affiliateId, productId]) /// One link per affiliate per product
+  @@index([affiliateId])
+  @@index([productId])
+  @@index([referralCode])
+  @@index([isActive])
+}
+
+/// AffiliateClick — Tracks referral link clicks for analytics
+/// Used for click attribution and anti-fraud analysis
+model AffiliateClick {
+  id                      String   @id @default(cuid())
+  
+  /// Link that was clicked
+  affiliateProductLinkId  String
+  affiliateProductLink    AffiliateProductLink @relation(fields: [affiliateProductLinkId], references: [id], onDelete: Cascade)
+  
+  /// Session tracking (for deduplication)
+  sessionId               String   /// Browser session ID
+  
+  /// Fingerprinting (for fraud detection)
+  ipAddress               String?
+  userAgent               String?
+  referer                 String?  /// HTTP Referer header
+  
+  /// Timestamp
+  createdAt               DateTime @default(now())
+  
+  /// Dedupe: one click per session per link
+  @@unique([affiliateProductLinkId, sessionId])
+  @@index([affiliateProductLinkId])
+  @@index([sessionId])
+  @@index([ipAddress])
+  @@index([createdAt])
+}
+
+/// AffiliateCommission — Financial record of commissions (IMMUTABLE)
+/// Tracks commissions earned on orders, with full audit trail
+/// Designed as append-only: status changes create new context, never update amounts
+model AffiliateCommission {
+  id              String   @id @default(cuid())
+  
+  /// Affiliate who earned the commission
+  affiliateId     String
+  affiliate       Affiliate @relation(fields: [affiliateId], references: [id])
+  
+  /// Order context (immutable snapshot)
+  orderId         String   /// Order that generated this commission
+  orderItemId     String   /// Specific order item
+  productId       Int      /// Product ID (denormalized for queries)
+  
+  /// Commission calculation (immutable after creation)
+  baseAmountCents Int      /// Order item subtotal at time of purchase
+  commissionRate  Decimal  @db.Decimal(5, 4) /// Rate locked at purchase time
+  amountCents     Int      /// Calculated commission in cents
+  currency        String   @default("USD") /// ISO 4217
+  
+  /// Status (append-only state machine)
+  status          String   @default("pending") /// pending, approved, cancelled, paid
+  
+  /// Status transition timestamps
+  approvedAt      DateTime?
+  cancelledAt     DateTime?
+  paidAt          DateTime?
+  
+  /// Cancellation/adjustment context
+  cancellationReason String? /// refund, fraud, dispute, etc.
+  refundId        String?    /// Link to refund if cancelled due to refund
+  
+  /// Payout tracking
+  payoutBatchId   String?    /// Group commissions into payout batches
+  
+  /// Idempotency (prevent duplicate commissions)
+  idempotencyKey  String     @unique /// {orderId}:{orderItemId}:{affiliateId}
+  
+  /// Audit
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  @@index([affiliateId])
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([productId])
+  @@index([status])
+  @@index([payoutBatchId])
+  @@index([createdAt])
+}
+
+/// AffiliatePayoutBatch — Groups approved commissions for payment processing
+model AffiliatePayoutBatch {
+  id              String   @id @default(cuid())
+  
+  /// Batch details
+  affiliateId     String   /// Affiliate receiving payout
+  
+  /// Financial totals
+  totalAmountCents Int     /// Sum of all commissions in batch
+  currency        String   @default("USD")
+  commissionCount Int      /// Number of commissions in batch
+  
+  /// Status
+  status          String   @default("pending") /// pending, processing, paid, failed
+  
+  /// Payment details
+  paymentMethod   String?  /// paypal, bank_transfer, etc.
+  paymentReference String? /// External payment reference (PayPal txn ID, etc.)
+  
+  /// Timestamps
+  processedAt     DateTime?
+  paidAt          DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  
+  /// Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  /// Admin who initiated
+  initiatedBy     Int?     /// Admin user ID
+  
+  @@index([affiliateId])
+  @@index([status])
+  @@index([createdAt])
 }

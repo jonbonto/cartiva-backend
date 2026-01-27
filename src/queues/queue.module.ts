@@ -5,6 +5,7 @@ import { EmailQueueModule } from './email-queue/email-queue.module';
 import { WebhookQueueModule } from './webhook-queue/webhook-queue.module';
 import { AnalyticsQueueModule } from './analytics-queue/analytics-queue.module';
 import { OrderQueueModule } from './order-queue/order-queue.module';
+import { AffiliateQueueModule } from './affiliate-queue/affiliate-queue.module';
 import { QueueMonitorController } from './queue-monitor.controller';
 
 /**
@@ -12,7 +13,7 @@ import { QueueMonitorController } from './queue-monitor.controller';
  * 
  * Architecture:
  * - Redis-based job queue using Bull
- * - Separate queues for different domains (email, webhooks, analytics, orders)
+ * - Separate queues for different domains (email, webhooks, analytics, orders, affiliate)
  * - Retry strategies with exponential backoff
  * - Job idempotency for critical operations
  * - Bull Board for admin monitoring
@@ -22,6 +23,7 @@ import { QueueMonitorController } from './queue-monitor.controller';
  * 2. WebhookQueue - Webhook replay & retries
  * 3. AnalyticsQueue - Data aggregation jobs
  * 4. OrderQueue - Order status updates & fulfillment events
+ * 5. AffiliateQueue - Affiliate tracking, commissions, payouts
  * 
  * Scaling:
  * - Each queue can have multiple workers (horizontal scaling)
@@ -43,6 +45,7 @@ import { QueueMonitorController } from './queue-monitor.controller';
     WebhookQueueModule,
     AnalyticsQueueModule,
     OrderQueueModule,
+    AffiliateQueueModule,
   ],
   controllers: [QueueMonitorController],
   exports: [
@@ -50,6 +53,7 @@ import { QueueMonitorController } from './queue-monitor.controller';
     WebhookQueueModule,
     AnalyticsQueueModule,
     OrderQueueModule,
+    AffiliateQueueModule,
   ],
 })
 export class QueueModule {}

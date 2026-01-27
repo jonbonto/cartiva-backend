@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module'
 import { OrdersModule } from './orders/orders.module'
 import { AnalyticsModule } from './analytics/analytics.module'
 import { UsersModule } from './users/users.module'
+import { AffiliateModule } from './affiliate/affiliate.module'
 import { EnvironmentValidator } from './common/environment.validator'
 import { BullModule } from '@nestjs/bull'
 import { ConfigService } from '@nestjs/config'
@@ -54,7 +55,8 @@ import { DiscountRuleModule } from './discount-rule/discount-rule.module'
     OrdersModule,
     AnalyticsModule,
     QueueModule,
-    DiscountRuleModule
+    DiscountRuleModule,
+    AffiliateModule,
   ],
   controllers: [ShippingController, TaxController],
   providers: [EnvironmentValidator],
