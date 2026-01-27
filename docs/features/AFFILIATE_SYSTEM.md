@@ -349,14 +349,14 @@ npx prisma migrate deploy
 
 ## Testing Checklist
 
-- [ ] Create affiliate account
-- [ ] Create product links
-- [ ] Track clicks (with deduplication)
-- [ ] Complete order with referral
-- [ ] Verify commission created
-- [ ] Fulfill order → commission approved
-- [ ] Process refund → commission cancelled
-- [ ] Create payout batch
-- [ ] Mark payout as paid
-- [ ] Verify self-purchase blocked
-- [ ] Verify suspended affiliate blocked
+- [x] Create affiliate account
+- [x] Create product links
+- [x] Track clicks (with deduplication)
+- [x] Complete order with referral
+- [x] Verify commission created
+- [x] Fulfill order → commission approved
+- [x] Process refund → commission cancelled
+- [x] Create payout batch
+- [x] Mark payout as paid
+- [x] Verify self-purchase blocked
+- [x] Verify suspended affiliate blocked

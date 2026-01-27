@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AffiliateOrderIntegrationService } from '../affiliate/integration/affiliate-order-integration.service';
 import { ORDER_EVENT_PUBLISHER } from '../queues/order-queue/order-queue.module';
 import { OrderEventPublisher } from '../queues/interfaces/order-event-publisher.interface';
 
@@ -60,6 +61,7 @@ export class FulfillmentService {
     private readonly prisma: PrismaService,
     @Inject(ORDER_EVENT_PUBLISHER)
     private readonly orderEventPublisher: OrderEventPublisher,
+    private readonly affiliateOrderIntegrationService: AffiliateOrderIntegrationService,
   ) {}
 
   /**
@@ -160,6 +162,15 @@ export class FulfillmentService {
         );
         // Don't throw - queue is non-critical
       });
+    }
+
+    // Approve affiliate commissions when order is delivered (async, non-blocking)
+    if (dto.fulfillmentStatus === 'delivered') {
+      try {
+        await this.affiliateOrderIntegrationService.approveOrderCommissionsAsync(updatedOrder.id)
+      } catch (err) {
+        this.logger.warn(`Failed to enqueue affiliate commission approval for order ${updatedOrder.id}: ${err.message}`)
+      }
     }
 
     return this.formatOrderForResponse(updatedOrder);

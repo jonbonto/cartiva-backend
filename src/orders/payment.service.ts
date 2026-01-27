@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service'
 import { OrdersService } from './orders.service'
 import { InventoryReservationService } from '../services/inventory/inventory-reservation.service'
+import { AffiliateOrderIntegrationService } from '../affiliate/integration/affiliate-order-integration.service'
 import { PaymentProvider, PaymentIntent, PaymentResult } from '../common/types/payment'
 import { PaymentProviderRegistry } from '../common/types/payment'
 import { StripePaymentProvider } from '../payments/stripe.provider'
@@ -38,6 +39,7 @@ export class OrderPaymentService {
     private prisma: PrismaService,
     private ordersService: OrdersService,
     private inventoryReservationService: InventoryReservationService,
+    private readonly affiliateOrderIntegrationService: AffiliateOrderIntegrationService,
     private stripeProvider: StripePaymentProvider,
     private midtransProvider: MidtransPaymentProvider,
     private emailService: EmailService
@@ -410,6 +412,15 @@ export class OrderPaymentService {
       })
 
       await this.ordersService.updateOrderStatus(orderId, 'REFUNDED')
+
+      // Notify affiliate system about refund (async)
+      try {
+        // If refund record creation is elsewhere, caller should pass refundId. Here we only have payment/provider info;
+        // enqueue a cancellation for the entire order without a refundId (affiliate service will record best-effort)
+        await this.affiliateOrderIntegrationService.handleRefundAsync(orderId, undefined, refundResult.refundId, 'full_refund')
+      } catch (err) {
+        this.logger.warn(`Failed to enqueue affiliate refund handling for order ${orderId}: ${err.message}`)
+      }
 
       this.logger.log(`Payment refunded: ${payment.providerPaymentId}`)
     } catch (error) {

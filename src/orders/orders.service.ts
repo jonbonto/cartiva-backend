@@ -7,6 +7,7 @@ import { ProductsService } from '../products/products.service'
 import { TaxService } from '../tax/domain/tax.service'
 import { ShippingService } from '../shipping/domain/shipping.service'
 import { InventoryReservationService } from '../services/inventory/inventory-reservation.service'
+import { AffiliateOrderIntegrationService } from '../affiliate/integration/affiliate-order-integration.service'
 import { CreateOrderDto } from './dto/order.dto'
 import { Order as OrderType, OrderValidator } from '../common/types/order'
 import { DiscountEngine, DiscountRule } from '../common/types/discount'
@@ -34,6 +35,7 @@ export class OrdersService {
     private taxService: TaxService,
     private shippingService: ShippingService,
     private inventoryReservationService: InventoryReservationService,
+    private readonly affiliateOrderIntegrationService: AffiliateOrderIntegrationService,
     @Inject(ORDER_REPOSITORY) private orderRepository: OrderRepository,
   ) {}
 
@@ -244,6 +246,45 @@ export class OrdersService {
       createOrderDto.shippingAddress,
       cartId
     )
+
+    // 10. Process referrals asynchronously (non-blocking)
+    try {
+      // Build order items for commission processing
+      const orderItemsForCommission = persistedOrder.items.map((it: any) => ({
+        id: it.id,
+        productId: it.productId,
+        subtotalAmountCents: it.subtotalAmountCents,
+      }))
+
+      // Resolve referrals from affiliate clicks recorded for the cart's session
+      const clicks = await this.prisma.affiliateClick.findMany({
+        where: { sessionId: cart.sessionId },
+        include: { affiliateProductLink: true },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      const referrals = new Map<number, string>()
+      for (const c of clicks) {
+        const productId = c.affiliateProductLink.productId
+        if (!referrals.has(productId)) {
+          referrals.set(productId, c.affiliateProductLink.referralCode)
+        }
+      }
+
+      if (referrals.size > 0) {
+        // Enqueue async commission creation — do not block order creation
+        await this.affiliateOrderIntegrationService.processOrderReferralsAsync(
+          persistedOrder.id,
+          userId,
+          orderItemsForCommission,
+          referrals,
+          persistedOrder.currency,
+        )
+      }
+    } catch (err) {
+      // Log but don't fail checkout due to affiliate processing
+      this.logger.warn(`Affiliate referral processing failed for order ${persistedOrder.id}: ${err.message}`)
+    }
 
     // 10. Mark cart as checked out (can't be reused)
     await this.cartService.markCartAsCheckedOut(cartId)

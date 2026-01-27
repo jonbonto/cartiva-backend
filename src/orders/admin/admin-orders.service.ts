@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { OrderPaymentService } from '../payment.service'
+import { AffiliateOrderIntegrationService } from '../../affiliate/integration/affiliate-order-integration.service'
 import { MoneyValue } from '../../common/types/money'
 
 /**
@@ -24,6 +25,7 @@ export class AdminOrdersService {
   constructor(
     private prisma: PrismaService,
     private orderPaymentService: OrderPaymentService
+    , private readonly affiliateOrderIntegrationService: AffiliateOrderIntegrationService
   ) {}
 
   /**
@@ -248,6 +250,17 @@ export class AdminOrdersService {
         data: { status: newStatus },
       })
 
+      // Inform affiliate system (enqueue cancellation)
+      try {
+        if (newStatus === 'REFUNDED') {
+          await this.affiliateOrderIntegrationService.handleRefundAsync(orderId, undefined, refundRecord.id, 'full_refund')
+        } else {
+          // Partial refund - enqueue generic refund handling (item-level cancellations require itemRefunds)
+          await this.affiliateOrderIntegrationService.handleRefundAsync(orderId, undefined, refundRecord.id, 'partial_refund')
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to notify affiliate system about refund ${refundRecord.id} for order ${orderId}: ${err.message}`)
+      }
       this.logger.log(
         `Refund processed: ${refundRecord.id} for order ${orderId}, amount: ${refundAmountCents}`
       )
