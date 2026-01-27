@@ -49,6 +49,7 @@ import { AdminGuard } from '../auth/guards/admin.guard'
 import { AffiliateService } from './services/affiliate.service'
 import { AffiliateTrackingService } from './services/affiliate-tracking.service'
 import { AffiliateCommissionService } from './services/affiliate-commission.service'
+import { AffiliateApplicationService, ApplyForAffiliateDto } from './services/affiliate-application.service'
 import {
   TrackClickDto,
   CreateAffiliateLinkDto,
@@ -70,6 +71,7 @@ export class AffiliatePublicController {
 
   constructor(
     private readonly trackingService: AffiliateTrackingService,
+    private readonly applicationService: AffiliateApplicationService,
   ) {}
 
   /**
@@ -98,6 +100,50 @@ export class AffiliatePublicController {
     this.logger.debug(`Click track request: ${dto.referralCode} for product ${dto.productId}`)
 
     return this.trackingService.trackClick(enrichedDto)
+  }
+
+  /**
+   * POST /api/affiliate/apply
+   * User applies to become an affiliate
+   * 
+   * Authenticated endpoint - user must be logged in
+   */
+  @Post('apply')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  async applyForAffiliate(
+    @Request() req: any,
+    @Body() dto: ApplyForAffiliateDto,
+  ) {
+    const userId = req.user?.id
+    if (!userId) {
+      throw new BadRequestException('User ID not found')
+    }
+
+    this.logger.log(`Application received for user ${userId}`)
+    return this.applicationService.applyForAffiliate(userId, dto)
+  }
+
+  /**
+   * GET /api/affiliate/application/status
+   * Check user's application status
+   * 
+   * Authenticated endpoint
+   */
+  @Get('application/status')
+  @UseGuards(JwtAuthGuard)
+  async getApplicationStatus(@Request() req: any) {
+    const userId = req.user?.id
+    if (!userId) {
+      throw new BadRequestException('User ID not found')
+    }
+
+    const application = await this.applicationService.getApplicationByUserId(userId)
+    if (!application) {
+      return { status: 'not_applied' }
+    }
+
+    return application
   }
 }
 
@@ -351,6 +397,7 @@ export class AffiliateAdminController {
   constructor(
     private readonly affiliateService: AffiliateService,
     private readonly commissionService: AffiliateCommissionService,
+    private readonly applicationService: AffiliateApplicationService,
   ) {}
 
   /**
@@ -533,5 +580,95 @@ export class AffiliateAdminController {
       totalCommissions,
       pendingCommissions,
     }
+  }
+
+  // =========================================================================
+  // APPLICATION MANAGEMENT
+  // =========================================================================
+
+  /**
+   * GET /api/admin/affiliate/applications
+   * List affiliate applications
+   */
+  @Get('applications')
+  async listApplications(
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const result = await this.applicationService.listApplications({
+      status,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+    })
+
+    return {
+      data: result.applications,
+      pagination: result.pagination,
+    }
+  }
+
+  /**
+   * GET /api/admin/affiliate/applications/:id
+   * Get application details
+   */
+  @Get('applications/:id')
+  async getApplication(@Param('id') applicationId: string) {
+    const application = await this.applicationService['prisma'].affiliateApplication.findUnique({
+      where: { id: applicationId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    if (!application) {
+      throw new BadRequestException('Application not found')
+    }
+
+    return application
+  }
+
+  /**
+   * PATCH /api/admin/affiliate/applications/:id/approve
+   * Approve an application and create affiliate account
+   */
+  @Patch('applications/:id/approve')
+  async approveApplication(
+    @Param('id') applicationId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    const adminId = req.user?.id
+    if (!adminId) {
+      throw new BadRequestException('Admin ID not found')
+    }
+
+    this.logger.log(`Admin ${adminId} approving application ${applicationId}`)
+    return this.applicationService.approveApplication(applicationId, dto, adminId)
+  }
+
+  /**
+   * PATCH /api/admin/affiliate/applications/:id/reject
+   * Reject an application
+   */
+  @Patch('applications/:id/reject')
+  async rejectApplication(
+    @Param('id') applicationId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    const adminId = req.user?.id
+    if (!adminId) {
+      throw new BadRequestException('Admin ID not found')
+    }
+
+    this.logger.log(`Admin ${adminId} rejecting application ${applicationId}`)
+    return this.applicationService.rejectApplication(applicationId, dto, adminId)
   }
 }

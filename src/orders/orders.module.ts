@@ -17,9 +17,10 @@ import { CancelOrderUseCase } from './application/cancel-order.usecase'
 import { GetOrderQuery } from './application/get-order.query'
 import { GetCustomerOrdersQuery } from './application/get-customer-orders.query'
 import { ORDER_REPOSITORY } from './domain/order.repository'
+import { AffiliateModule } from '../affiliate'
 
 @Module({
-  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, DomainServicesModule, UsersModule],
+  imports: [PrismaModule, CartModule, ProductsModule, PaymentsModule, EmailModule, DomainServicesModule, UsersModule, AffiliateModule],
   providers: [
     OrdersService,
     OrderPaymentService,

@@ -73,6 +73,9 @@ model User {
   
   /// Affiliate profile (if user is an affiliate)
   affiliate Affiliate?
+  
+  /// Affiliate application (if user has applied)
+  affiliateApplication AffiliateApplication? @relation("AffiliateApplications")
 }
 
 /// Order — immutable snapshot of a checkout
@@ -713,6 +716,37 @@ model AffiliatePayoutBatch {
   initiatedBy     Int?     /// Admin user ID
   
   @@index([affiliateId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// AffiliateApplication — User applications to become affiliates
+model AffiliateApplication {
+  id                String   @id @default(cuid())
+  
+  /// User applying
+  userId            Int      @unique
+  user              User     @relation("AffiliateApplications", fields: [userId], references: [id], onDelete: Cascade)
+  
+  /// Application status
+  status            String   @default("pending") /// pending, approved, rejected
+  
+  /// Application info
+  email             String
+  payoutMethod      String?  /// paypal, bank_transfer, etc.
+  payoutDetails     Json?    /// Provider-specific payout details
+  notes             String?  /// User notes/motivation
+  
+  /// Admin review
+  adminNotes        String?  /// Reason for rejection or approval notes
+  reviewedBy        Int?     /// Admin user ID
+  reviewedAt        DateTime?
+  
+  /// Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([userId])
   @@index([status])
   @@index([createdAt])
 }

@@ -6,6 +6,7 @@ import { AffiliateQueueModule } from '../queues/affiliate-queue/affiliate-queue.
 import { AffiliateService } from './services/affiliate.service'
 import { AffiliateTrackingService } from './services/affiliate-tracking.service'
 import { AffiliateCommissionService } from './services/affiliate-commission.service'
+import { AffiliateApplicationService } from './services/affiliate-application.service'
 
 // Controllers
 import {
@@ -55,6 +56,7 @@ import { AffiliateOrderIntegrationService } from './integration/affiliate-order-
     AffiliateService,
     AffiliateTrackingService,
     AffiliateCommissionService,
+    AffiliateApplicationService,
     AffiliateOrderIntegrationService,
   ],
   exports: [
@@ -62,6 +64,7 @@ import { AffiliateOrderIntegrationService } from './integration/affiliate-order-
     AffiliateService,
     AffiliateTrackingService,
     AffiliateCommissionService,
+    AffiliateApplicationService,
     AffiliateOrderIntegrationService,
     // Re-export queue module for convenience
     AffiliateQueueModule,

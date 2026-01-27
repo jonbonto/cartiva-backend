@@ -3,6 +3,7 @@ import { FulfillmentService } from './fulfillment.service';
 import { FulfillmentController } from './fulfillment.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { QueueModule } from '../queues/queue.module';
+import { AffiliateModule } from '../affiliate/affiliate.module';
 
 /**
  * Fulfillment Module — Order shipping and delivery management
@@ -20,7 +21,7 @@ import { QueueModule } from '../queues/queue.module';
  */
 
 @Module({
-  imports: [PrismaModule, QueueModule],
+  imports: [PrismaModule, QueueModule, AffiliateModule],
   providers: [FulfillmentService],
   controllers: [FulfillmentController],
   exports: [FulfillmentService],
