@@ -743,5 +743,58 @@ The system is designed to evolve without breaking existing code.
 
 ---
 
-**Status:** ✅ Phase 4 Design Complete
-**Next:** Implement OrderService, Payment webhooks (Phase 5)
+## Webhook Security Enhancements
+
+### Raw Body Validation
+
+Webhook signature verification requires access to the raw (unparsed) HTTP request body.  The server preserves raw bodies for webhook paths by using the Express `json()` middleware `verify` callback in `main.ts`:
+
+```typescript
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.path.includes('/webhooks/')) req.rawBody = buf.toString('utf8')
+  },
+}))
+```
+
+`OrdersController.handleWebhook` will reject requests where neither `rawBody` nor `body` is present, preventing silent signature-verification failures.
+
+### Replay Attack Prevention
+
+Webhook handlers validate the timestamp embedded in Stripe-format signatures (`t=<unix_seconds>,v1=<hash>`).  Requests older than **300 seconds** (5 minutes) are rejected with `acknowledged: false` to prevent replay attacks.
+
+```
+Signature: t=1700000000,v1=abc...
+```
+
+If the timestamp is absent or uses a non-Stripe format the check is skipped so other providers are unaffected.
+
+### Sensitive Data in Logs
+
+Signature header values are **not** written to the log.  Only their boolean presence (`true`/`false`) is logged to avoid leaking credentials in log aggregators.
+
+---
+
+## Payment Intent Retry Mechanism
+
+`OrderPaymentService.createPayment` wraps the provider's `createPayment` call with an **exponential-backoff retry**:
+
+| Attempt | Delay before next attempt |
+|---------|---------------------------|
+| 1       | 500 ms                    |
+| 2       | 1 000 ms                  |
+| 3       | (final — throws)          |
+
+Retries are only attempted for **transient** errors:
+
+- `ECONNRESET` / `ECONNREFUSED` / `ETIMEDOUT` (network)
+- `StripeConnectionError` (Stripe SDK)
+- HTTP `429 Too Many Requests` (rate limit)
+- HTTP `5xx` server errors from the payment provider
+
+Non-transient errors (e.g. invalid API key, bad request) are thrown immediately without retrying.
+
+---
+
+**Status:** ✅ Phase 4 Design Complete  
+**Enhancements:** Webhook validation, replay protection, retry mechanism (Phase 5+)

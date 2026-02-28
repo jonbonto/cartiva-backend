@@ -112,7 +112,7 @@ export class OrderPaymentService {
     let paymentIntent: PaymentIntent
     let usedProviderName = providerName
     try {
-      paymentIntent = await provider.createPayment(orderDomain, options)
+      paymentIntent = await this.withRetry(() => provider.createPayment(orderDomain, options))
       this.logger.log(
         `Payment intent created: ${paymentIntent.id} for order ${orderId} via ${providerName}`
       )
@@ -483,6 +483,49 @@ export class OrderPaymentService {
       .createHash('sha256')
       .update(`${orderId}:${providerName}`)
       .digest('hex')
+  }
+
+  /**
+   * Retry a function with exponential backoff for transient errors.
+   * Only retries when isTransientError returns true for the thrown error.
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    maxAttempts = 3,
+    baseDelayMs = 500
+  ): Promise<T> {
+    let lastError: any
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn()
+      } catch (error) {
+        lastError = error
+        if (attempt === maxAttempts || !this.isTransientError(error)) {
+          throw error
+        }
+        const delay = baseDelayMs * Math.pow(2, attempt - 1)
+        this.logger.warn(
+          `Payment intent attempt ${attempt} failed: ${error.message}. Retrying in ${delay}ms...`
+        )
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    throw lastError
+  }
+
+  /**
+   * Determine whether an error from a payment provider is transient
+   * (e.g. network blip, rate limit, or 5xx from provider) and worth retrying.
+   */
+  private isTransientError(error: any): boolean {
+    return (
+      error.code === 'ECONNRESET' ||
+      error.code === 'ECONNREFUSED' ||
+      error.code === 'ETIMEDOUT' ||
+      error.type === 'StripeConnectionError' ||
+      error.statusCode === 429 ||
+      (typeof error.statusCode === 'number' && error.statusCode >= 500 && error.statusCode < 600)
+    )
   }
 
   /**

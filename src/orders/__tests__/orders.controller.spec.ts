@@ -280,4 +280,71 @@ describe('OrdersController (unit)', () => {
     expect(mockUsersService.getPaymentMethod).not.toHaveBeenCalled()
     expect(mockOrderPaymentService.createPayment).not.toHaveBeenCalled()
   })
+
+  describe('POST /webhooks/:provider', () => {
+    it('delegates to orderPaymentService when raw body is present', async () => {
+      const rawBody = Buffer.from(JSON.stringify({ id: 'evt_1', type: 'payment_intent.succeeded' }))
+      const req: any = { rawBody, body: {} }
+      // Use a non-stale, non-Stripe-format signature to bypass timestamp check
+      const sig = 'valid-sig'
+      mockOrderPaymentService.handleWebhook.mockResolvedValue({ acknowledged: true })
+
+      const res = await controller.handleWebhook('mock', req, sig, undefined, undefined)
+
+      expect(mockOrderPaymentService.handleWebhook).toHaveBeenCalledWith('mock', rawBody, sig)
+      expect(res).toEqual({ acknowledged: true })
+    })
+
+    it('returns acknowledged=false when neither rawBody nor body is present', async () => {
+      const req: any = { rawBody: undefined, body: undefined }
+
+      const res = await controller.handleWebhook('stripe', req, 't=1,v1=abc', undefined, undefined)
+
+      expect(mockOrderPaymentService.handleWebhook).not.toHaveBeenCalled()
+      expect(res).toEqual({ acknowledged: false, error: 'Raw body not available' })
+    })
+
+    it('returns acknowledged=false for stale Stripe-format signature', async () => {
+      const req: any = { rawBody: Buffer.from('{}'), body: {} }
+      // Timestamp far in the past (year 2001)
+      const staleSignature = 't=1000000000,v1=abc123'
+
+      const res = await controller.handleWebhook('stripe', req, staleSignature, undefined, undefined)
+
+      expect(mockOrderPaymentService.handleWebhook).not.toHaveBeenCalled()
+      expect(res).toEqual({ acknowledged: false, error: 'Webhook timestamp is too old' })
+    })
+
+    it('returns acknowledged=false and error message when service throws', async () => {
+      const req: any = { rawBody: Buffer.from('{}'), body: {} }
+      mockOrderPaymentService.handleWebhook.mockRejectedValue(new Error('provider error'))
+
+      const res = await controller.handleWebhook('mock', req, '', undefined, undefined)
+
+      expect(res).toEqual({ acknowledged: false, error: 'provider error' })
+    })
+
+    it('returns service result when service returns acknowledged=false (e.g. invalid signature)', async () => {
+      const req: any = { rawBody: Buffer.from('{}'), body: {} }
+      mockOrderPaymentService.handleWebhook.mockResolvedValue({ acknowledged: false })
+
+      const res = await controller.handleWebhook('stripe', req, '', undefined, undefined)
+
+      expect(res).toEqual({ acknowledged: false })
+    })
+
+    it('passes both calls to service when same payload arrives twice (service-level idempotency)', async () => {
+      const req: any = { rawBody: Buffer.from(JSON.stringify({ id: 'evt_dup' })), body: {} }
+      mockOrderPaymentService.handleWebhook.mockResolvedValue({ acknowledged: true })
+
+      // Call twice with the same payload; the controller delegates both calls to the service
+      // which is responsible for detecting and handling duplicates idempotently
+      const res1 = await controller.handleWebhook('mock', req, '', undefined, undefined)
+      const res2 = await controller.handleWebhook('mock', req, '', undefined, undefined)
+
+      expect(res1).toEqual({ acknowledged: true })
+      expect(res2).toEqual({ acknowledged: true })
+      expect(mockOrderPaymentService.handleWebhook).toHaveBeenCalledTimes(2)
+    })
+  })
 })
