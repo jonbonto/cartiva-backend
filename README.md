@@ -36,6 +36,28 @@ npm run start:dev
 
 Server will run on `http://localhost:3000`
 
+## Payment Webhooks
+
+Payment provider webhooks are handled at `POST /api/orders/webhooks/:provider`.
+
+### Security
+
+- **Raw body preservation** – the server stores the raw request buffer for each webhook request so that provider signatures can be verified correctly.
+- **Replay attack prevention** – incoming Stripe-format signatures (`t=<timestamp>,v1=<hash>`) are checked against the current time.  Webhooks older than **5 minutes** are rejected.
+- **Signature masking** – signature values are never written to application logs; only their boolean presence is recorded.
+
+### Retry Mechanism
+
+Payment intent creation uses **exponential backoff** (up to 3 attempts, starting at 500 ms) for transient errors such as network timeouts, connection resets, Stripe connection errors, rate-limit responses (`429`), and provider `5xx` responses.
+
+### Webhook Endpoint Headers
+
+| Provider  | Signature header              |
+|-----------|-------------------------------|
+| Stripe    | `x-stripe-signature`          |
+| Midtrans  | `x-midtrans-signature`        |
+| PayPal    | `paypal-transmission-sig`     |
+
 ## Perf Runner
 
 This repository includes a lightweight Node perf runner useful for load testing address creation and generating reports.

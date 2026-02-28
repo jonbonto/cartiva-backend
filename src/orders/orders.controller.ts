@@ -394,15 +394,26 @@ export class OrdersController {
     const signature = stripeSignature || midtransSignature || paypalSignature || ''
 
     this.logger.log(`🔔 WEBHOOK RECEIVED - Provider: ${provider}`)
-    this.logger.log(`   Signature Header Present: ${!!stripeSignature || !!midtransSignature || !!paypalSignature}`)
+    this.logger.log(`   Signature Header Present: ${!!signature}`)
     this.logger.log(`   Raw Body Available: ${!!req.rawBody}`)
-    this.logger.log(`   Body Type: ${typeof req.body}`)
+
+    // Validate that raw body is available for signature verification
+    if (!req.rawBody && !req.body) {
+      this.logger.error('Webhook rejected: raw body not available for signature verification')
+      return { acknowledged: false, error: 'Raw body not available' }
+    }
+
+    // Reject stale webhooks to prevent replay attacks (checks Stripe-format timestamp)
+    if (signature && this.isWebhookStale(signature)) {
+      this.logger.warn(`Webhook rejected: stale timestamp detected for provider ${provider}`)
+      return { acknowledged: false, error: 'Webhook timestamp is too old' }
+    }
 
     try {
       // Body might be raw buffer for signature verification
       const body = req.rawBody || JSON.stringify(req.body)
 
-      this.logger.log(`   Processing webhook with payload of ${typeof body === 'string' ? body.length : 'buffer'} bytes`)
+      this.logger.log(`   Processing webhook with payload of ${typeof body === 'string' ? body.length : (body as Buffer).length} bytes`)
 
       const result = await this.orderPaymentService.handleWebhook(
         provider,
@@ -418,6 +429,19 @@ export class OrdersController {
       // Return 200 anyway to prevent provider from retrying
       return { acknowledged: false, error: error.message }
     }
+  }
+
+  /**
+   * Check if a webhook signature timestamp is stale (replay attack prevention).
+   * Supports Stripe-format signatures: "t=<unix_timestamp>,v1=<hash>"
+   * Returns false (not stale) if no timestamp can be found in the signature.
+   */
+  private isWebhookStale(signature: string, toleranceSeconds = 300): boolean {
+    const match = signature.match(/t=(\d+)/)
+    if (!match) return false
+    const webhookTimestamp = parseInt(match[1], 10)
+    const now = Math.floor(Date.now() / 1000)
+    return (now - webhookTimestamp) > toleranceSeconds
   }
 
   /**
